@@ -8,10 +8,17 @@ try:
     import logging
     import time
     import select
+    import pyinotify
+    from threading import Event
     from sonic_sfp.sfputilbase import SfpUtilBase
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
 
+evt_notifier = Event()
+
+class Event_handler(pyinotify.ProcessEvent):
+    def process_IN_MODIFY(self, event):
+        evt_notifier.set()
 
 class SfpUtil(SfpUtilBase):
     """Platform-specific SfpUtil class"""
@@ -30,7 +37,8 @@ class SfpUtil(SfpUtilBase):
     OIR_FD_PATH = "/sys/devices/platform/dell_ich.0/sci_int_gpio_sus6"
 
     oir_fd = -1
-    epoll = -1
+    notifier = None
+
     _port_to_eeprom_mapping = {}
     _port_to_i2c_mapping = {
            0: [0, 00], # Dummy Entry
@@ -120,13 +128,18 @@ class SfpUtil(SfpUtilBase):
                 self.port_to_i2c_mapping[x][0],
                 self.port_to_i2c_mapping[x][1])
 
+        watch_mgr = pyinotify.WatchManager()
+        self.notifier = pyinotify.ThreadedNotifier(watch_mgr, Event_handler())
+        self.notifier.setDaemon(True)
+        self.notifier.start()
+        watch_mgr.add_watch(self.OIR_FD_PATH, pyinotify.IN_MODIFY)
+
         SfpUtilBase.__init__(self)
 
     def __del__(self):
         if self.oir_fd != -1:
-                self.epoll.unregister(self.oir_fd.fileno())
-                self.epoll.close()
-                self.oir_fd.close()
+            self.oir_fd.close()
+        self.notifier.stop()
 
     def normalize_port(self, port_num):
         # Check for invalid port_num
@@ -381,62 +394,21 @@ class SfpUtil(SfpUtilBase):
     def get_transceiver_change_event(self, timeout=0):
             port_dict = {}
             try:
-                # We get notified when there is an SCI interrupt from GPIO SUS6
-                # Open the sysfs file and register the epoll object
-                self.oir_fd = open(self.OIR_FD_PATH, "r")
-                if self.oir_fd != -1:
-                    # Do a dummy read before epoll register
-                    self.oir_fd.read()
-                    self.epoll = select.epoll()
-                    self.epoll.register(self.oir_fd.fileno(),
-                                        select.EPOLLIN & select.EPOLLET)
-                else:
-                    print("get_transceiver_change_event : unable to create fd")
-                    return False, {}
-
-                # Check for missed interrupts by invoking self.check_interrupts
-                # which will update the port_dict.
-                while True:
-                    interrupt_count_start = self.get_register(self.OIR_FD_PATH)
-
-                    retval, is_port_dict_updated = \
-                        self.check_interrupts(port_dict)
-                    if ((retval == 0) and (is_port_dict_updated is True)):
-                        return True, port_dict
-
-                    interrupt_count_end = self.get_register(self.OIR_FD_PATH)
-
-                    if (interrupt_count_start == 'ERR' or
-                            interrupt_count_end == 'ERR'):
-                        print("get_transceiver_change_event : \
-                            unable to retrive interrupt count")
-                        break
-
-                    # check_interrupts() itself may take upto 100s of msecs.
-                    # We detect a missed interrupt based on the count
-                    if interrupt_count_start == interrupt_count_end:
-                        break
-
-                # Block until an xcvr is inserted or removed with timeout = -1
-                events = self.epoll.poll(
-                    timeout=timeout if timeout != 0 else -1)
-                if events:
+                evt_notifier.wait()
+                evt_notifier.clear()
                     # check interrupts and return the port_dict
-                    retval, is_port_dict_updated = \
-                                              self.check_interrupts(port_dict)
-                    if (retval != 0):
-                        return False, {}
+                retval, is_port_dict_updated = \
+                                          self.check_interrupts(port_dict)
+                if (retval != 0):
+                    return False, {}
 
                 return True, port_dict
             except:
                 return False, {}
             finally:
                 if self.oir_fd != -1:
-                    self.epoll.unregister(self.oir_fd.fileno())
-                    self.epoll.close()
                     self.oir_fd.close()
                     self.oir_fd = -1
-                    self.epoll = -1
 
             return False, {}
 

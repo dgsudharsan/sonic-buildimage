@@ -42,6 +42,7 @@ COPY python-wheels/{{ whl }} /python-wheels/
 # Install locally-built Python wheel dependencies
 {%- for whl in docker_platform_monitor_whls.split(' ') %}
 RUN pip install /python-wheels/{{ whl }}
+RUN pip install pyinotify
 {%- endfor %}
 {% endif %}
 
