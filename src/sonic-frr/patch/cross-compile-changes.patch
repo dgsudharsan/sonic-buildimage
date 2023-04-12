@@ -1,14 +1,16 @@
-From ece218405fe4c086017f2a4f2b2b4c86b9790db0 Mon Sep 17 00:00:00 2001
+From eff4567cc13934da430996a29225101fbb7fa976 Mon Sep 17 00:00:00 2001
 From: Saikrishna Arcot <sarcot@microsoft.com>
 Date: Wed, 6 Jul 2022 11:28:16 -0700
-Subject: [PATCH] Make changes to support crosscompilation in SONiC
+Subject: [PATCH] From ece218405fe4c086017f2a4f2b2b4c86b9790db0 Mon Sep 17
+ 00:00:00 2001 Subject: [PATCH] Make changes to support crosscompilation in
+ SONiC
 
 Signed-off-by: Saikrishna Arcot <sarcot@microsoft.com>
 ---
  debian/frr-doc.info |  1 -
  debian/frr.manpages | 16 ----------------
- debian/rules        | 17 ++++++++++++-----
- 3 files changed, 12 insertions(+), 22 deletions(-)
+ debian/rules        | 19 +++++++++++++------
+ 3 files changed, 13 insertions(+), 23 deletions(-)
  delete mode 100644 debian/frr-doc.info
  delete mode 100644 debian/frr.manpages
 
@@ -42,7 +44,7 @@ index 5075fd763..000000000
 -doc/manpages/_build/man/mtracebis.8
 -doc/manpages/_build/man/vtysh.1
 diff --git a/debian/rules b/debian/rules
-index 0fa9c3a3b..6b005ea5f 100755
+index 7a719b7c6..91a4e3abc 100755
 --- a/debian/rules
 +++ b/debian/rules
 @@ -27,10 +27,17 @@ else
@@ -64,7 +66,7 @@ index 0fa9c3a3b..6b005ea5f 100755
  
  override_dh_auto_configure:
  	$(shell dpkg-buildflags --export=sh); \
-@@ -67,12 +74,12 @@ override_dh_auto_configure:
+@@ -67,13 +74,13 @@ override_dh_auto_configure:
  override_dh_auto_install:
  	dh_auto_install
  
@@ -75,12 +77,14 @@ index 0fa9c3a3b..6b005ea5f 100755
  
  # let dh_systemd_* and dh_installinit do their thing automatically
 -	cp tools/frr.service debian/frr.service
+-	cp tools/frr@.service debian/frr@.service
 -	cp tools/frrinit.sh debian/frr.init
 +	cp build/tools/frr.service debian/frr.service
++	cp build/tools/frr@.service debian/frr@.service
 +	cp build/tools/frrinit.sh debian/frr.init
  	-rm -f debian/tmp/usr/lib/frr/frr
  
  # install config files
 -- 
-2.25.1
+2.17.1
 
