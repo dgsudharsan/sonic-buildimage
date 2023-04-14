@@ -10,6 +10,7 @@ STG_BRANCH = stg_temp.$(SUFFIX)
 $(addprefix $(DEST)/, $(MAIN_TARGET)): $(DEST)/% :
 	# Build the package
 	pushd ./frr
+	git tag -l $(FRR_TAG) | grep -q $(FRR_TAG) || git tag -a $(FRR_TAG) e5bda76eb9d595e99f6c21ed0820a5eaf0ad584b -m "Temp tag"
 	git checkout -b $(FRR_BRANCH) || git checkout $(FRR_BRANCH)
 ifeq ($(CROSS_BUILD_ENVIRON), y)
 	git reset --hard
