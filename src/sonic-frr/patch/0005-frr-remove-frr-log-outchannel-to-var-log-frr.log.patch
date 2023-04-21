@@ -1,4 +1,4 @@
-From 394a083dd9051b938282cb96f9a4d8811bda02fd Mon Sep 17 00:00:00 2001
+From a2063fb6878fca5af2c47572f2602da98abcfda8 Mon Sep 17 00:00:00 2001
 From: Ying Xie <ying.xie@microsoft.com>
 Date: Wed, 25 Nov 2020 22:28:43 +0000
 Subject: [PATCH] From 0417036a3aece862c95111d4646ca7508a028165 Mon Sep 17
@@ -8,14 +8,14 @@ Subject: [PATCH] From 0417036a3aece862c95111d4646ca7508a028165 Mon Sep 17
  inside the docker. It will grow and take all harddrive space eventually.
 
 ---
- tools/etc/rsyslog.d/45-frr.conf | 21 ---------------------
- 1 file changed, 21 deletions(-)
+ tools/etc/rsyslog.d/45-frr.conf | 23 -----------------------
+ 1 file changed, 23 deletions(-)
 
 diff --git a/tools/etc/rsyslog.d/45-frr.conf b/tools/etc/rsyslog.d/45-frr.conf
-index 9da15b9f9..5c48566cc 100644
+index 75b20d76b..9cdd55762 100644
 --- a/tools/etc/rsyslog.d/45-frr.conf
 +++ b/tools/etc/rsyslog.d/45-frr.conf
-@@ -2,27 +2,6 @@
+@@ -2,29 +2,6 @@
  # to /var/log/frr/frr.log, then drops the message so it does
  # not also go to /var/log/syslog, so the messages are not duplicated
  
@@ -32,7 +32,9 @@ index 9da15b9f9..5c48566cc 100644
 -    $programname == 'ospf6d' or
 -    $programname == 'ospfd' or
 -    $programname == 'pimd' or
+-    $programname == 'pim6d' or
 -    $programname == 'pathd' or
+-    $programname == 'pbrd' or
 -    $programname == 'ripd' or
 -    $programname == 'ripngd' or
 -    $programname == 'vrrpd' or
