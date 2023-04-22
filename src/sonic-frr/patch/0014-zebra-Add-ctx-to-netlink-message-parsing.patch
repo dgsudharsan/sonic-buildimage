@@ -125,7 +125,7 @@ index ad874dfdc..ce8373207 100644
 +			      struct zebra_dplane_ctx *ctx)
 +{
 +	if (!ctx)
-+		rib_add_multipath(afi, safi, p, src_p, re, ng);
++		rib_add_multipath(afi, safi, p, src_p, re, ng, startup);
 +	else {
 +	}
 +}
