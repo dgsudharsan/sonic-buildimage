@@ -1,0 +1,29 @@
+From 94e55edb68aaf8790e848c821f0337ef30f7e1cb Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Wed, 5 Oct 2022 10:26:07 -0400
+Subject: [PATCH] From 07a41dcd82ff41b406d0011554d70ce79da68df5 Mon Sep 17
+ 00:00:00 2001 Subject: [PATCH 1/8] zebra: Return statements do not use
+ paranthesis
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ zebra/zebra_rib.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/zebra/zebra_rib.c b/zebra/zebra_rib.c
+index adc6a904f..2734085aa 100644
+--- a/zebra/zebra_rib.c
++++ b/zebra/zebra_rib.c
+@@ -1519,8 +1519,7 @@ static bool rib_route_match_ctx(const struct route_entry *re,
+ 	}
+ 
+ done:
+-
+-	return (result);
++	return result;
+ }
+ 
+ static void zebra_rib_fixup_system(struct route_node *rn)
+-- 
+2.17.1
+

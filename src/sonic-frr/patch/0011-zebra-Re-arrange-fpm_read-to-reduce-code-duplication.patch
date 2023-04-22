@@ -1,0 +1,57 @@
+From be28db7b2702614d331feb31edf57f368df9392a Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Wed, 5 Oct 2022 11:28:43 -0400
+Subject: [PATCH] From 88ba9ad950d461847a159b0f4899375ecd23d4b9 Mon Sep 17
+ 00:00:00 2001 Subject: [PATCH 3/8] zebra: Re-arrange fpm_read to reduce code
+ duplication
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ zebra/dplane_fpm_nl.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/zebra/dplane_fpm_nl.c b/zebra/dplane_fpm_nl.c
+index c5e1c113c..994464862 100644
+--- a/zebra/dplane_fpm_nl.c
++++ b/zebra/dplane_fpm_nl.c
+@@ -467,13 +467,6 @@ static void fpm_read(struct thread *t)
+ 	/* Let's ignore the input at the moment. */
+ 	rv = stream_read_try(fnc->ibuf, fnc->socket,
+ 			     STREAM_WRITEABLE(fnc->ibuf));
+-	/* We've got an interruption. */
+-	if (rv == -2) {
+-		/* Schedule next read. */
+-		thread_add_read(fnc->fthread->master, fpm_read, fnc,
+-				fnc->socket, &fnc->t_read);
+-		return;
+-	}
+ 	if (rv == 0) {
+ 		atomic_fetch_add_explicit(&fnc->counters.connection_closes, 1,
+ 					  memory_order_relaxed);
+@@ -492,14 +485,21 @@ static void fpm_read(struct thread *t)
+ 		FPM_RECONNECT(fnc);
+ 		return;
+ 	}
++
++	/* Schedule the next read */
++	thread_add_read(fnc->fthread->master, fpm_read, fnc, fnc->socket,
++			&fnc->t_read);
++
++	/* We've got an interruption. */
++	if (rv == -2)
++		return;
++
+ 	stream_reset(fnc->ibuf);
+ 
+ 	/* Account all bytes read. */
+ 	atomic_fetch_add_explicit(&fnc->counters.bytes_read, rv,
+ 				  memory_order_relaxed);
+ 
+-	thread_add_read(fnc->fthread->master, fpm_read, fnc, fnc->socket,
+-			&fnc->t_read);
+ }
+ 
+ static void fpm_write(struct thread *t)
+-- 
+2.17.1
+
