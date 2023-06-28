@@ -9,4 +9,4 @@ cross-compile-changes.patch
 0007-ignore-route-from-default-table.patch
 0008-Use-vrf_id-for-vrf-not-tabled_id.patch
 0009-bgpd-Ensure-suppress-fib-pending-works-with-network-.patch
-
+0010-zebra-Fix-crash-when-dplane_fpm_nl-fails-to-process-.patch
