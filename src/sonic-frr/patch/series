@@ -11,3 +11,12 @@ cross-compile-changes.patch
 0009-bgpd-Ensure-suppress-fib-pending-works-with-network-.patch
 0010-bgpd-Change-log-level-for-graceful-restart-events.patch
 0011-zebra-Fix-crash-when-dplane_fpm_nl-fails-to-process-.patch
+0012-zebra-Static-routes-async-notification-do-not-need-t.patch
+0013-zebra-Rename-vrf_lookup_by_tableid-to-zebra_vrf_look.patch
+0014-zebra-Move-protodown_r_bit-to-a-better-spot.patch
+0015-zebra-Remove-unused-dplane_intf_delete.patch
+0016-zebra-Remove-unused-add-variable.patch
+0017-zebra-Remove-duplicate-function-for-netlink-interfac.patch
+0018-zebra-Add-code-to-get-set-interface-to-pass-up-from-.patch
+0019-zebra-Use-zebra-dplane-for-RTM-link-and-addr.patch
+
