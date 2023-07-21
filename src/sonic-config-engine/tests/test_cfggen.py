@@ -729,6 +729,21 @@ class TestCfgGen(TestCase):
         output = self.run_script(argument)
         self.assertEqual(output.strip(), "")
 
+    def test_minigraph_bgp_sentinel(self):
+        argument = ['-m', self.sample_graph_simple, '-p', self.port_config, '-v', "BGP_SENTINELS[\'BGPSentinel\']"]
+        output = self.run_script(argument)
+        self.assertEqual(
+            utils.to_dict(output.strip()),
+            utils.to_dict("{'name': 'BGPSentinel', 'ip_range': ['10.154.232.0/21','10.42.168.0/21'], 'src_address': '10.2.0.20'}")
+        )
+
+        argument = ['-m', self.sample_graph_simple, '-p', self.port_config, '-v', "BGP_SENTINELS[\'BGPSentinelV6\']"]
+        output = self.run_script(argument)
+        self.assertEqual(
+            utils.to_dict(output.strip()),
+            utils.to_dict("{'name': 'BGPSentinelV6', 'ip_range': ['2603:10a0:321:82f9::/64','2603:10a1:30a:8000::/59'], 'src_address': 'fc00:1::32'}")
+        )
+
     def test_minigraph_sub_port_intf_resource_type_non_backend_tor(self, check_stderr=True):
         self.verify_sub_intf_non_backend_tor(graph_file=self.sample_resource_graph, check_stderr=check_stderr)
 
@@ -1027,14 +1042,14 @@ class TestCfgGen(TestCase):
         output = self.run_script(argument)
         self.assertEqual(
             utils.to_dict(output.strip()),
-            utils.to_dict("{'8.0.0.1/32': {'nexthop': '192.168.1.2,192.168.2.2', 'ifname': 'PortChannel40,PortChannel50', 'advertise':'false'}}")
+            utils.to_dict("{'8.0.0.1/32': {'nexthop': '192.168.1.2,192.168.2.2', 'ifname': 'PortChannel40,PortChannel50', 'advertise':'false', 'bfd':'true'}}")
         )
 
         argument = ['-m', self.packet_chassis_graph, '-p', self.packet_chassis_port_ini, '-n', "asic1", '-v', "STATIC_ROUTE"]
         output = self.run_script(argument)
         self.assertEqual(
             utils.to_dict(output.strip()),
-            utils.to_dict("{'8.0.0.1/32': {'nexthop': '192.168.1.2,192.168.2.2', 'ifname': 'PortChannel40,PortChannel50', 'advertise':'false'}}")
+            utils.to_dict("{'8.0.0.1/32': {'nexthop': '192.168.1.2,192.168.2.2', 'ifname': 'PortChannel40,PortChannel50', 'advertise':'false', 'bfd':'true'}}")
         )
 
     def test_minigraph_bgp_packet_chassis_vlan_subintf(self):
