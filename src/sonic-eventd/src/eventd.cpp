@@ -1,7 +1,6 @@
 #include <thread>
 #include "eventd.h"
 #include "dbconnector.h"
-#include "zmq.h"
 
 /*
  * There are 5 threads, including the main
@@ -356,7 +355,6 @@ capture_service::do_capture()
     int init_cnt;
     void *cap_sub_sock = NULL;
     counters_t total_overflow = 0;
-    static bool init_done = false;
 
     typedef enum {
         /*
@@ -392,25 +390,6 @@ capture_service::do_capture()
     RET_ON_ERR(rc == 0, "Failed to ZMQ_RCVTIMEO to %d", block_ms);
 
     m_cap_run = true;
-
-    if(!init_done) {
-        zmq_msg_t msg;
-        zmq_msg_init(&msg);
-        int rc = zmq_msg_recv(&msg, cap_sub_sock, 0);
-        RET_ON_ERR(rc == 1, "Failed to read subscription message when XSUB connects to XPUB");
-        /*
-         * When XSUB socket connects to XPUB, a subscription message is sent as a single byte 1.
-         * When capture service begins to read, the very first message that it will read is this
-         * control character.
-         *
-         * We will handle by reading this message and dropping it before we begin reading for
-         * cached events.
-         *
-         * This behavior will only happen once when XSUB connects to XPUB not everytime cache is started.
-         *
-         */
-         init_done = true;
-    }
 
     while (m_ctrl != START_CAPTURE) {
         /* Wait for capture start */
