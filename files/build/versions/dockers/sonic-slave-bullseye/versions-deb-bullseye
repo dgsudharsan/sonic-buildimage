@@ -1457,9 +1457,9 @@ openjdk-11-jdk-headless==11.0.20+8-1~deb11u1
 openjdk-11-jre==11.0.20+8-1~deb11u1
 openjdk-11-jre-headless==11.0.20+8-1~deb11u1
 opensp==1.5.2-13+b2
-openssh-client==1:8.4p1-5+deb11u1
-openssh-server==1:8.4p1-5+deb11u1
-openssh-sftp-server==1:8.4p1-5+deb11u1
+openssh-client==1:8.4p1-5+deb11u2
+openssh-server==1:8.4p1-5+deb11u2
+openssh-sftp-server==1:8.4p1-5+deb11u2
 openssl==1.1.1n-0+deb11u5
 ovmf==2020.11-2+deb11u1
 packagekit==1.2.2-2

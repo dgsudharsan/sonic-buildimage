@@ -44,7 +44,7 @@ linux-libc-dev==5.10.191-1
 mft==4.25.0-62
 mft-fwtrace-cfg==1.0.0
 mlnx-sai==1.mlnx.SAIBuild2211.25.1.4
-openssh-client==1:8.4p1-5+deb11u1
+openssh-client==1:8.4p1-5+deb11u2
 python-pip-whl==20.3.4-4+deb11u1
 python-sdk-api==1.mlnx.4.6.1062
 python3-attr==20.3.0-1

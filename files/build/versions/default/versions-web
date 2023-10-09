@@ -120,9 +120,9 @@ https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/amd64/libpyt
 https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/amd64/libssl-dev_1.1.1n-0+deb11u4+fips_amd64.deb==a1833ecb83cddb66ce30bf4b28e48856
 https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/amd64/libssl-doc_1.1.1n-0+deb11u4+fips_all.deb==52925c4fd9932ffe78798dd55bdb077e
 https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/amd64/libssl1.1_1.1.1n-0+deb11u4+fips_amd64.deb==65000162eac58235fbf1acab52047ca9
-https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/amd64/openssh-client_8.4p1-5+deb11u1+fips_amd64.deb==bee0e4f52cf8dedd6dac78be18b02400
-https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/amd64/openssh-server_8.4p1-5+deb11u1+fips_amd64.deb==8ac4a8397c8e62d554718f1c8c6f5896
-https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/amd64/openssh-sftp-server_8.4p1-5+deb11u1+fips_amd64.deb==94740a01d5d025df8d99d3e5b7a0b0e9
+https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/amd64/openssh-client_8.4p1-5+deb11u2+fips_amd64.deb==bee0e4f52cf8dedd6dac78be18b02400
+https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/amd64/openssh-server_8.4p1-5+deb11u2+fips_amd64.deb==8ac4a8397c8e62d554718f1c8c6f5896
+https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/amd64/openssh-sftp-server_8.4p1-5+deb11u2+fips_amd64.deb==94740a01d5d025df8d99d3e5b7a0b0e9
 https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/amd64/openssl_1.1.1n-0+deb11u4+fips_amd64.deb==2f3040c1dc6230c5dd09994eeaace905
 https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/amd64/python3.9-minimal_3.9.2-1+fips_amd64.deb==66511f65e2873cda108e6bb3911abbf5
 https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/amd64/python3.9_3.9.2-1+fips_amd64.deb==30be224443931a2a3428aa270b87384a
@@ -138,9 +138,9 @@ https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/arm64/libpyt
 https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/arm64/libssl-dev_1.1.1n-0+deb11u4+fips_arm64.deb==56aed9e3cef3692a36129598bd9871d6
 https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/arm64/libssl-doc_1.1.1n-0+deb11u4+fips_all.deb==52925c4fd9932ffe78798dd55bdb077e
 https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/arm64/libssl1.1_1.1.1n-0+deb11u4+fips_arm64.deb==5c760faf80f6f4efc71e255b2e0774fc
-https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/arm64/openssh-client_8.4p1-5+deb11u1+fips_arm64.deb==ce762b1730871a72bc423c97444342ad
-https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/arm64/openssh-server_8.4p1-5+deb11u1+fips_arm64.deb==c943526cf7317d4c0d05005db47b6992
-https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/arm64/openssh-sftp-server_8.4p1-5+deb11u1+fips_arm64.deb==4e360e97ed3f0eaead7a8ef79fa4f3d7
+https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/arm64/openssh-client_8.4p1-5+deb11u2+fips_arm64.deb==ce762b1730871a72bc423c97444342ad
+https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/arm64/openssh-server_8.4p1-5+deb11u2+fips_arm64.deb==c943526cf7317d4c0d05005db47b6992
+https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/arm64/openssh-sftp-server_8.4p1-5+deb11u2+fips_arm64.deb==4e360e97ed3f0eaead7a8ef79fa4f3d7
 https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/arm64/openssl_1.1.1n-0+deb11u4+fips_arm64.deb==68e32a58e12f960ce163decc0f756906
 https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/arm64/python3.9-minimal_3.9.2-1+fips_arm64.deb==71935b5d5780014e0048f0e9d84acdb9
 https://sonicstorage.blob.core.windows.net/public/fips/bullseye/0.8/arm64/python3.9_3.9.2-1+fips_arm64.deb==4d6307dabcd3060235d6188cfa0346b8
