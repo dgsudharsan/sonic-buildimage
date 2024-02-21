@@ -131,6 +131,17 @@ function ParseMachineConf() {
     ONIE_PLATFORM="$(cat /host/machine.conf | grep 'onie_platform=' | cut -f2 -d'=')"
 }
 
+function UpdateMachineConf() {
+    local ONIE_BASE_MAC="onie_base_mac="
+    ONIE_BASE_MAC+=$(sonic-cfggen -H -v DEVICE_METADATA.localhost.mac)
+    if grep -q "onie_base_mac" /host/machine.conf; then
+        echo "Not updating mac in machie.conf"
+    else
+        echo $ONIE_BASE_MAC >> /host/machine.conf
+        echo "Update mac in machie.conf"
+    fi
+}
+
 function ShowProgressBar() {
     local -rA SPIN=(
         [0]="-"
@@ -375,6 +386,7 @@ function ExitIfQEMU() {
 trap Cleanup EXIT
 
 ParseMachineConf
+UpdateMachineConf
 ParseArguments "$@"
 
 ExitIfQEMU
