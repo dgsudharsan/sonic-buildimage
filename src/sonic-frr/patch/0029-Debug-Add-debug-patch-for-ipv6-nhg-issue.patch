@@ -1,0 +1,32 @@
+From 9baba5fcc4a1841013cbd971915cf87589f9e8c9 Mon Sep 17 00:00:00 2001
+From: dgsudharsan <sudharsand@nvidia.com>
+Date: Fri, 19 Apr 2024 17:14:48 +0000
+Subject: [PATCH] [Debug] Add debug patch for ipv6 nhg issue
+
+
+diff --git a/lib/nexthop.c b/lib/nexthop.c
+index e3bdbfb9e8..479e2f562f 100644
+--- a/lib/nexthop.c
++++ b/lib/nexthop.c
+@@ -1096,9 +1096,13 @@ static ssize_t printfrr_nh(struct fbuf *buf, struct printfrr_eargs *ea,
+ 
+ bool nexthop_is_ifindex_type(const struct nexthop *nh)
+ {
+-	if (nh->type == NEXTHOP_TYPE_IFINDEX ||
+-	    nh->type == NEXTHOP_TYPE_IPV4_IFINDEX ||
+-	    nh->type == NEXTHOP_TYPE_IPV6_IFINDEX)
+-		return true;
+-	return false;
++       if (nh->type == NEXTHOP_TYPE_BLACKHOLE)
++               return false;
++
++       /*
++        * NEXTHOP_TYPE_IPV4 and NEXTHOP_TYPE_IPV6
++        * both can implicitly have an ifindex
++        */
++       return true;
+ }
++
+-- 
+2.17.1
+
