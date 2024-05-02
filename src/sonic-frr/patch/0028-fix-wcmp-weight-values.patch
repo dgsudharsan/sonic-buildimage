@@ -1,0 +1,394 @@
+From be75961598b08ef10e6de03dff311d1db0d74e9d Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Thu, 28 Sep 2023 12:27:31 -0400
+Subject: [PATCH 1/5] zebra: Score weighted values of ecmp to a number between
+ 1-255
+
+Currently underlying asics get into a bit of trouble when the
+nexthop weight passed down varies wildly between the different
+numbers.  Let's normalize the weight values between 1 and 255
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ zebra/zapi_msg.c | 38 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 38 insertions(+)
+
+diff --git a/zebra/zapi_msg.c b/zebra/zapi_msg.c
+index c478f83795..c1179dfece 100644
+--- a/zebra/zapi_msg.c
++++ b/zebra/zapi_msg.c
+@@ -1714,10 +1714,14 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
+ 			       struct nexthop_group **png,
+ 			       struct nhg_backup_info **pbnhg)
+ {
++	struct zapi_nexthop *znh;
+ 	struct nexthop_group *ng = NULL;
+ 	struct nhg_backup_info *bnhg = NULL;
+ 	uint16_t i;
+ 	struct nexthop *last_nh = NULL;
++	bool same_weight = true;
++	uint64_t max_weight = 0;
++	uint64_t tmp;
+ 
+ 	assert(!(png && pbnhg));
+ 
+@@ -1732,6 +1736,40 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
+ 		bnhg = zebra_nhg_backup_alloc();
+ 	}
+ 
++	for (i = 0; i < nexthop_num; i++) {
++		znh = &nhops[i];
++
++		if (max_weight < znh->weight) {
++			if (i != 0 || znh->weight != 1)
++				same_weight = false;
++
++			max_weight = znh->weight;
++		}
++	}
++
++	/*
++	 * Let's convert the weights to a scaled value
++	 * between 1 and zrouter.nexthop_weight_scale_value
++	 * This is a simple application of a ratio:
++	 * scaled_weight/zrouter.nexthop_weight_scale_value = 
++         * weight/max_weight
++	 * This translates to:
++	 * scaled_weight = weight * zrouter.nexthop_weight_scale_value
++	 *                 -------------------------------------------
++	 *                           max_weight
++	 *
++	 * This same formula is applied to both the nexthops
++	 * and the backup nexthops
++	 */
++	if (!same_weight) {
++		for (i = 0; i < nexthop_num; i++) {
++			znh = &nhops[i];
++
++			tmp = (uint64_t)znh->weight * 255;
++			znh->weight = MAX(1, ((uint32_t)(tmp / max_weight)));
++		}
++	}
++
+ 	/*
+ 	 * TBD should _all_ of the nexthop add operations use
+ 	 * api_nh->vrf_id instead of re->vrf_id ? I only changed
+-- 
+2.17.1
+
+
+From 0d4a529bffea985472b4156120c9ca430d4660cc Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Thu, 28 Sep 2023 12:44:31 -0400
+Subject: [PATCH 2/5] zebra: Make ucmp scale value owned by zrouter
+
+The weight scale value might be useful to have it
+change it's behavior at a later time or controlled
+by something depending on how FRR is compiled/ran.
+Let's start that process
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ zebra/zapi_msg.c     | 3 ++-
+ zebra/zebra_router.c | 2 ++
+ zebra/zebra_router.h | 2 ++
+ 3 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/zebra/zapi_msg.c b/zebra/zapi_msg.c
+index c1179dfece..f199004552 100644
+--- a/zebra/zapi_msg.c
++++ b/zebra/zapi_msg.c
+@@ -1765,7 +1765,8 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
+ 		for (i = 0; i < nexthop_num; i++) {
+ 			znh = &nhops[i];
+ 
+-			tmp = (uint64_t)znh->weight * 255;
++			tmp = (uint64_t)znh->weight *
++			      zrouter.nexthop_weight_scale_value;
+ 			znh->weight = MAX(1, ((uint32_t)(tmp / max_weight)));
+ 		}
+ 	}
+diff --git a/zebra/zebra_router.c b/zebra/zebra_router.c
+index 12689804ea..707c4e1f62 100644
+--- a/zebra/zebra_router.c
++++ b/zebra/zebra_router.c
+@@ -343,6 +343,8 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
+ #endif
+ 	zrouter.asic_notification_nexthop_control = false;
+ 
++	zrouter.nexthop_weight_scale_value = 255;
++
+ #ifdef HAVE_SCRIPTING
+ 	zebra_script_init();
+ #endif
+diff --git a/zebra/zebra_router.h b/zebra/zebra_router.h
+index 61bde4ac2a..1eb4a6ca32 100644
+--- a/zebra/zebra_router.h
++++ b/zebra/zebra_router.h
+@@ -246,6 +246,8 @@ struct zebra_router {
+ 	bool allow_delete;
+ 
+ 	uint8_t protodown_r_bit;
++
++	uint64_t nexthop_weight_scale_value;
+ };
+ 
+ #define GRACEFUL_RESTART_TIME 60
+-- 
+2.17.1
+
+
+From 6d351af773b2d2883ff6f6b254058fa5eb0e5ef8 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 29 Sep 2023 15:17:14 -0400
+Subject: [PATCH 3/5] bgpd: Just pass down the Bandwidth unmodified so that
+ Zebra can use it
+
+Instead of scaling the bandwith to something between 1 and 100, just
+send down the bandwidth Available for the link.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ bgpd/bgp_zebra.c | 12 +++---------
+ 1 file changed, 3 insertions(+), 9 deletions(-)
+
+diff --git a/bgpd/bgp_zebra.c b/bgpd/bgp_zebra.c
+index ff79746b4c..e0554a061b 100644
+--- a/bgpd/bgp_zebra.c
++++ b/bgpd/bgp_zebra.c
+@@ -1270,24 +1270,18 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
+ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
+ 					uint64_t tot_bw, uint32_t *nh_weight)
+ {
+-	uint32_t bw;
+-	uint64_t tmp;
+-
+-	bw = attr->link_bw;
+ 	/* zero link-bandwidth and link-bandwidth not present are treated
+ 	 * as the same situation.
+ 	 */
+-	if (!bw) {
++	if (!attr->link_bw) {
+ 		/* the only situations should be if we're either told
+ 		 * to skip or use default weight.
+ 		 */
+ 		if (bgp->lb_handling == BGP_LINK_BW_SKIP_MISSING)
+ 			return false;
+ 		*nh_weight = BGP_ZEBRA_DEFAULT_NHOP_WEIGHT;
+-	} else {
+-		tmp = (uint64_t)bw * 100;
+-		*nh_weight = ((uint32_t)(tmp / tot_bw));
+-	}
++	} else
++		*nh_weight = attr->link_bw;
+ 
+ 	return true;
+ }
+-- 
+2.17.1
+
+
+From d58ae28369d8d0a8e51852c63c4585e61f9cfc2e Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 29 Sep 2023 15:19:54 -0400
+Subject: [PATCH 4/5] bgpd: Remove unused cumulative bandwidth variable
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ bgpd/bgp_zebra.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/bgpd/bgp_zebra.c b/bgpd/bgp_zebra.c
+index e0554a061b..c330de1163 100644
+--- a/bgpd/bgp_zebra.c
++++ b/bgpd/bgp_zebra.c
+@@ -1268,7 +1268,7 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
+ }
+ 
+ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
+-					uint64_t tot_bw, uint32_t *nh_weight)
++					uint32_t *nh_weight)
+ {
+ 	/* zero link-bandwidth and link-bandwidth not present are treated
+ 	 * as the same situation.
+@@ -1309,7 +1309,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
+ 	int nh_othervrf = 0;
+ 	bool nh_updated = false;
+ 	bool do_wt_ecmp;
+-	uint64_t cum_bw = 0;
+ 	uint32_t nhg_id = 0;
+ 	bool is_add;
+ 	uint32_t ttl = 0;
+@@ -1390,8 +1389,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
+ 
+ 	/* Determine if we're doing weighted ECMP or not */
+ 	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
+-	if (do_wt_ecmp)
+-		cum_bw = bgp_path_info_mpath_cumbw(info);
+ 
+ 	/* EVPN MAC-IP routes are installed with a L3 NHG id */
+ 	if (bgp_evpn_path_es_use_nhg(bgp, info, &nhg_id)) {
+@@ -1430,7 +1427,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
+ 		 */
+ 		if (do_wt_ecmp) {
+ 			if (!bgp_zebra_use_nhop_weighted(bgp, mpinfo->attr,
+-							 cum_bw, &nh_weight))
++							 &nh_weight))
+ 				continue;
+ 		}
+ 		api_nh = &api.nexthops[valid_nh_count];
+-- 
+2.17.1
+
+
+From bb2c35f38a1c06f77e4e16ff957d217cd6c94c0d Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Thu, 12 Oct 2023 12:00:07 -0400
+Subject: [PATCH 5/5] tests: Fixup bgp_link_bw_ip test to new behavior
+
+Old behavior was metric values between 1-100,
+now we have metric values between 1-255.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ tests/topotests/bgp_link_bw_ip/r1/ip-route-1.json | 4 ++--
+ tests/topotests/bgp_link_bw_ip/r1/ip-route-2.json | 4 ++--
+ tests/topotests/bgp_link_bw_ip/r1/ip-route-3.json | 4 ++--
+ tests/topotests/bgp_link_bw_ip/r1/ip-route-6.json | 2 +-
+ tests/topotests/bgp_link_bw_ip/r1/ip-route-7.json | 2 +-
+ tests/topotests/bgp_link_bw_ip/r1/ip-route-8.json | 2 +-
+ tests/topotests/bgp_link_bw_ip/r1/ip-route-9.json | 2 +-
+ tests/topotests/bgp_link_bw_ip/r2/ip-route-2.json | 4 ++--
+ 8 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/tests/topotests/bgp_link_bw_ip/r1/ip-route-1.json b/tests/topotests/bgp_link_bw_ip/r1/ip-route-1.json
+index 3c02e2675d..bb50bc96d9 100644
+--- a/tests/topotests/bgp_link_bw_ip/r1/ip-route-1.json
++++ b/tests/topotests/bgp_link_bw_ip/r1/ip-route-1.json
+@@ -7,12 +7,12 @@
+         {
+           "fib":true,
+           "ip":"11.1.1.6",
+-          "weight":25
++          "weight":85
+         },
+         {
+           "fib":true,
+           "ip":"11.1.1.2",
+-          "weight":75
++          "weight":255
+         }
+       ]
+     }
+diff --git a/tests/topotests/bgp_link_bw_ip/r1/ip-route-2.json b/tests/topotests/bgp_link_bw_ip/r1/ip-route-2.json
+index 3c2d42caac..57726ce46c 100644
+--- a/tests/topotests/bgp_link_bw_ip/r1/ip-route-2.json
++++ b/tests/topotests/bgp_link_bw_ip/r1/ip-route-2.json
+@@ -7,12 +7,12 @@
+         {
+           "fib":true,
+           "ip":"11.1.1.6",
+-          "weight":33
++          "weight":127
+         },
+         {
+           "fib":true,
+           "ip":"11.1.1.2",
+-          "weight":66
++          "weight":255
+         }
+       ]
+     }
+diff --git a/tests/topotests/bgp_link_bw_ip/r1/ip-route-3.json b/tests/topotests/bgp_link_bw_ip/r1/ip-route-3.json
+index 3d80018cea..f2368dfdc5 100644
+--- a/tests/topotests/bgp_link_bw_ip/r1/ip-route-3.json
++++ b/tests/topotests/bgp_link_bw_ip/r1/ip-route-3.json
+@@ -7,12 +7,12 @@
+         {
+           "fib":true,
+           "ip":"11.1.1.6",
+-          "weight":33
++          "weight":127
+         },
+         {
+           "fib":true,
+           "ip":"11.1.1.2",
+-          "weight":66
++          "weight":255
+         }
+       ]
+     }
+diff --git a/tests/topotests/bgp_link_bw_ip/r1/ip-route-6.json b/tests/topotests/bgp_link_bw_ip/r1/ip-route-6.json
+index 6ed3f8ef55..7b4da2a8d0 100644
+--- a/tests/topotests/bgp_link_bw_ip/r1/ip-route-6.json
++++ b/tests/topotests/bgp_link_bw_ip/r1/ip-route-6.json
+@@ -7,7 +7,7 @@
+         {
+           "fib":true,
+           "ip":"11.1.1.2",
+-          "weight":100
++          "weight":255
+         }
+       ]
+     }
+diff --git a/tests/topotests/bgp_link_bw_ip/r1/ip-route-7.json b/tests/topotests/bgp_link_bw_ip/r1/ip-route-7.json
+index 95531d99be..3062d1cf8b 100644
+--- a/tests/topotests/bgp_link_bw_ip/r1/ip-route-7.json
++++ b/tests/topotests/bgp_link_bw_ip/r1/ip-route-7.json
+@@ -7,7 +7,7 @@
+         {
+           "fib":true,
+           "ip":"11.1.1.2",
+-          "weight":100
++          "weight":255
+         }
+       ]
+     }
+diff --git a/tests/topotests/bgp_link_bw_ip/r1/ip-route-8.json b/tests/topotests/bgp_link_bw_ip/r1/ip-route-8.json
+index beac501360..662b7f716c 100644
+--- a/tests/topotests/bgp_link_bw_ip/r1/ip-route-8.json
++++ b/tests/topotests/bgp_link_bw_ip/r1/ip-route-8.json
+@@ -12,7 +12,7 @@
+         {
+           "fib":true,
+           "ip":"11.1.1.2",
+-          "weight":100
++          "weight":255
+         }
+       ]
+     }
+diff --git a/tests/topotests/bgp_link_bw_ip/r1/ip-route-9.json b/tests/topotests/bgp_link_bw_ip/r1/ip-route-9.json
+index eb27ce2633..d9b5a8992d 100644
+--- a/tests/topotests/bgp_link_bw_ip/r1/ip-route-9.json
++++ b/tests/topotests/bgp_link_bw_ip/r1/ip-route-9.json
+@@ -12,7 +12,7 @@
+         {
+           "fib":true,
+           "ip":"11.1.1.2",
+-          "weight":100
++          "weight":255
+         }
+       ]
+     }
+diff --git a/tests/topotests/bgp_link_bw_ip/r2/ip-route-2.json b/tests/topotests/bgp_link_bw_ip/r2/ip-route-2.json
+index 7e2fa6be25..53be1171f6 100644
+--- a/tests/topotests/bgp_link_bw_ip/r2/ip-route-2.json
++++ b/tests/topotests/bgp_link_bw_ip/r2/ip-route-2.json
+@@ -7,12 +7,12 @@
+         {
+           "fib":true,
+           "ip":"11.1.2.6",
+-          "weight":33
++          "weight":127
+         },
+         {
+           "fib":true,
+           "ip":"11.1.2.2",
+-          "weight":66
++          "weight":255
+         }
+       ]
+     }
+-- 
+2.17.1
+
