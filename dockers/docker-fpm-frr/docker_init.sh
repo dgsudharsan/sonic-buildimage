@@ -41,20 +41,6 @@ update_default_gw()
    fi
 }
 
-write_default_zebra_config()
-{
-    FILE_NAME=${1}
-
-    grep -q '^no fpm use-next-hop-groups' $FILE_NAME || {
-        echo "no fpm use-next-hop-groups" >> $FILE_NAME
-        echo "fpm address 127.0.0.1" >> $FILE_NAME
-    }
-
-    grep -q '^no zebra nexthop kernel enable' $FILE_NAME || {
-        echo "no zebra nexthop kernel enable" >> $FILE_NAME
-    }
-}
-
 if [[ ! -z "$NAMESPACE_ID" ]]; then
    update_default_gw 4
    update_default_gw 6
@@ -83,11 +69,9 @@ if [ -z "$CONFIG_TYPE" ] || [ "$CONFIG_TYPE" == "separated" ]; then
 elif [ "$CONFIG_TYPE" == "split" ]; then
     echo "no service integrated-vtysh-config" > /etc/frr/vtysh.conf
     rm -f /etc/frr/frr.conf
-    write_default_zebra_config /etc/frr/zebra.conf
 elif [ "$CONFIG_TYPE" == "split-unified" ]; then
     echo "service integrated-vtysh-config" > /etc/frr/vtysh.conf
     rm -f /etc/frr/bgpd.conf /etc/frr/zebra.conf /etc/frr/staticd.conf
-    write_default_zebra_config /etc/frr/frr.conf
 elif [ "$CONFIG_TYPE" == "unified" ]; then
     CFGGEN_PARAMS=" \
         -d \
