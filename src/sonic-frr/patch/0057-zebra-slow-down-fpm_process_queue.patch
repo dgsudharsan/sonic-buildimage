@@ -1,6 +1,6 @@
-From e7d269cd343900b037d2a9d87c7a9bb1166b8d5a Mon Sep 17 00:00:00 2001
-From: Donald Sharp <sharpd@nvidia.com>
-Date: Thu, 10 Oct 2024 20:08:32 -0400
+From 2f0ecc9a4695a12e8c20d6cccd29088fa4d1ddc1 Mon Sep 17 00:00:00 2001
+From: dgsudharsan <sudharsand@nvidia.com>
+Date: Wed, 23 Oct 2024 23:38:25 +0000
 Subject: [PATCH] zebra: Slow down fpm_process_queue
 
 When the fpm_process_queue has run out of space
@@ -12,16 +12,11 @@ buffer then delay the processing by 10 milliseconds to
 allow a possibly backed up write processing to have a
 chance to complete it's work.
 
-Signed-off-by: Donald Sharp <sharpd@nvidia.com>
----
- zebra/dplane_fpm_nl.c | 16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
-
 diff --git a/zebra/dplane_fpm_nl.c b/zebra/dplane_fpm_nl.c
-index caa2f988e2..4fedebc050 100644
+index 2f5f766128..b1cadd4826 100644
 --- a/zebra/dplane_fpm_nl.c
 +++ b/zebra/dplane_fpm_nl.c
-@@ -1353,6 +1353,7 @@ static void fpm_process_queue(struct thread *t)
+@@ -1361,6 +1361,7 @@ static void fpm_process_queue(struct thread *t)
  	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
  	struct zebra_dplane_ctx *ctx;
  	bool no_bufs = false;
@@ -29,15 +24,15 @@ index caa2f988e2..4fedebc050 100644
  	uint64_t processed_contexts = 0;
  
  	while (true) {
-@@ -1378,6 +1379,7 @@ static void fpm_process_queue(struct thread *t)
+@@ -1386,6 +1387,7 @@ static void fpm_process_queue(struct thread *t)
  		if (fnc->socket != -1)
  			(void)fpm_nl_enqueue(fnc, ctx);
  
 +		wrote_data = true;
  		/* Account the processed entries. */
  		processed_contexts++;
- 		atomic_fetch_sub_explicit(&fnc->counters.ctxqueue_len, 1,
-@@ -1392,10 +1394,16 @@ static void fpm_process_queue(struct thread *t)
+ 
+@@ -1398,10 +1400,16 @@ static void fpm_process_queue(struct thread *t)
  				  processed_contexts, memory_order_relaxed);
  
  	/* Re-schedule if we ran out of buffer space */
@@ -59,4 +54,5 @@ index caa2f988e2..4fedebc050 100644
  	 * Let the dataplane thread know if there are items in the
  	 * output queue to be processed. Otherwise they may sit
 -- 
-2.34.1
+2.43.2
+
