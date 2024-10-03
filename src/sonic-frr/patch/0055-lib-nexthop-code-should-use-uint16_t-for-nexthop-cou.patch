@@ -1,0 +1,109 @@
+From f790ebb0a0ef558fa2a0ae5d776b69e555261eb0 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Tue, 1 Oct 2024 14:31:08 -0400
+Subject: [PATCH] lib: nexthop code should use uint16_t for nexthop counting
+
+It's possible to specify via the cli and configure how many
+nexthops that are allowed on the system.  If you happen to
+have > 255 then things are about to get interesting otherwise.
+
+Let's allow up to 65k nexthops (ha!)
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+
+diff --git a/lib/nexthop_group.c b/lib/nexthop_group.c
+index 41fe64606b..179296dec5 100644
+--- a/lib/nexthop_group.c
++++ b/lib/nexthop_group.c
+@@ -82,10 +82,10 @@ static struct nexthop *nexthop_group_tail(const struct nexthop_group *nhg)
+ 	return nexthop;
+ }
+ 
+-uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
++uint16_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
+ {
+ 	struct nexthop *nhop;
+-	uint8_t num = 0;
++	uint16_t num = 0;
+ 
+ 	for (ALL_NEXTHOPS_PTR(nhg, nhop))
+ 		num++;
+@@ -93,10 +93,10 @@ uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
+ 	return num;
+ }
+ 
+-uint8_t nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg)
++uint16_t nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg)
+ {
+ 	struct nexthop *nhop;
+-	uint8_t num = 0;
++	uint16_t num = 0;
+ 
+ 	for (nhop = nhg->nexthop; nhop; nhop = nhop->next)
+ 		num++;
+@@ -104,10 +104,10 @@ uint8_t nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg)
+ 	return num;
+ }
+ 
+-uint8_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
++uint16_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
+ {
+ 	struct nexthop *nhop;
+-	uint8_t num = 0;
++	uint16_t num = 0;
+ 
+ 	for (ALL_NEXTHOPS_PTR(nhg, nhop)) {
+ 		if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
+@@ -117,11 +117,11 @@ uint8_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
+ 	return num;
+ }
+ 
+-uint8_t
++uint16_t
+ nexthop_group_active_nexthop_num_no_recurse(const struct nexthop_group *nhg)
+ {
+ 	struct nexthop *nhop;
+-	uint8_t num = 0;
++	uint16_t num = 0;
+ 
+ 	for (nhop = nhg->nexthop; nhop; nhop = nhop->next) {
+ 		if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
+@@ -197,11 +197,9 @@ static struct nexthop *nhg_nh_find(const struct nexthop_group *nhg,
+ 	return NULL;
+ }
+ 
+-static bool
+-nexthop_group_equal_common(const struct nexthop_group *nhg1,
+-			   const struct nexthop_group *nhg2,
+-			   uint8_t (*nexthop_group_nexthop_num_func)(
+-				   const struct nexthop_group *nhg))
++static bool nexthop_group_equal_common(
++	const struct nexthop_group *nhg1, const struct nexthop_group *nhg2,
++	uint16_t (*nexthop_group_nexthop_num_func)(const struct nexthop_group *nhg))
+ {
+ 	if (nhg1 && !nhg2)
+ 		return false;
+diff --git a/lib/nexthop_group.h b/lib/nexthop_group.h
+index 0ea0b7c185..d41e298260 100644
+--- a/lib/nexthop_group.h
++++ b/lib/nexthop_group.h
+@@ -162,12 +162,12 @@ extern void nexthop_group_json_nexthop(json_object *j,
+ 				       const struct nexthop *nh);
+ 
+ /* Return the number of nexthops in this nhg */
+-extern uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg);
+-extern uint8_t
++extern uint16_t nexthop_group_nexthop_num(const struct nexthop_group *nhg);
++extern uint16_t
+ nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg);
+-extern uint8_t
++extern uint16_t
+ nexthop_group_active_nexthop_num(const struct nexthop_group *nhg);
+-extern uint8_t
++extern uint16_t
+ nexthop_group_active_nexthop_num_no_recurse(const struct nexthop_group *nhg);
+ 
+ #ifdef __cplusplus
+-- 
+2.43.2
+
