@@ -54,3 +54,4 @@
 build-dplane-fpm-sonic-module.patch
 0054-Increase-multipath-to-512.patch
 0055-lib-nexthop-code-should-use-uint16_t-for-nexthop-cou.patch
+0056-Allow-16-bit-size-for-nexthops.patch
