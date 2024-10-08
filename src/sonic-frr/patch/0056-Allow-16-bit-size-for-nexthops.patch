@@ -1,4 +1,4 @@
-From f3405d45b81c8c7a7a7b650d62692f8fba38172c Mon Sep 17 00:00:00 2001
+From 193556febda90ee53f070b9c6bb391a813981cc2 Mon Sep 17 00:00:00 2001
 From: Donald Sharp <sharpd@nvidia.com>
 Date: Mon, 7 Oct 2024 12:40:46 -0400
 Subject: [PATCH] *: Allow 16 bit size for nexthops
@@ -72,7 +72,7 @@ index f487a21ba4..bda640bf87 100644
  	int64_t last_update;
  	uint16_t flags;
 diff --git a/zebra/rt_netlink.c b/zebra/rt_netlink.c
-index 3f51894be3..e9b61caa7e 100644
+index 3f51894be3..e2c48d1893 100644
 --- a/zebra/rt_netlink.c
 +++ b/zebra/rt_netlink.c
 @@ -564,12 +564,9 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
@@ -109,22 +109,16 @@ index 3f51894be3..e9b61caa7e 100644
  
  				/* Use temporary list of nexthops; parse
  				 * message payload's nexthops.
-@@ -2464,11 +2461,9 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
- /* Char length to debug ID with */
- #define ID_LENGTH 10
- 
--static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
--					 uint32_t id,
--					 const struct nh_grp *z_grp,
+@@ -2467,7 +2464,7 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
+ static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
+ 					 uint32_t id,
+ 					 const struct nh_grp *z_grp,
 -					 const uint8_t count, bool resilient,
--					 const struct nhg_resilience *nhgr)
-+static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size, uint32_t id,
-+					 const struct nh_grp *z_grp, const uint16_t count,
-+					 bool resilient, const struct nhg_resilience *nhgr)
++					 const uint16_t count, bool resilient,
+ 					 const struct nhg_resilience *nhgr)
  {
  	struct nexthop_grp grp[count];
- 	/* Need space for max group size, "/", and null term */
-@@ -3069,7 +3064,7 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
+@@ -3069,7 +3066,7 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
  					 struct nh_grp *z_grp, int z_grp_size,
  					 struct nhg_resilience *nhgr)
  {
@@ -133,6 +127,15 @@ index 3f51894be3..e9b61caa7e 100644
  	/* linux/nexthop.h group struct */
  	struct nexthop_grp *n_grp = NULL;
  
+@@ -3142,7 +3139,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+ 	struct nexthop nh = {};
+ 	struct nh_grp grp[MULTIPATH_NUM] = {};
+ 	/* Count of nexthops in group array */
+-	uint8_t grp_count = 0;
++	uint16_t grp_count = 0;
+ 	struct rtattr *tb[NHA_MAX + 1] = {};
+ 
+ 	frrtrace(3, frr_zebra, netlink_nexthop_change, h, ns_id, startup);
 diff --git a/zebra/zapi_msg.c b/zebra/zapi_msg.c
 index f199004552..6bfc1c17a4 100644
 --- a/zebra/zapi_msg.c
@@ -182,22 +185,19 @@ index c29e05bbc9..c1e8e0b631 100644
  /* Accessors for LSP information */
  
 diff --git a/zebra/zebra_nhg.c b/zebra/zebra_nhg.c
-index 33d2344f51..734d2ac5eb 100644
+index 33d2344f51..8ef4ab2e48 100644
 --- a/zebra/zebra_nhg.c
 +++ b/zebra/zebra_nhg.c
-@@ -628,9 +628,8 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
- 	return nhe1->id == nhe2->id;
- }
+@@ -630,7 +630,7 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
  
--static int zebra_nhg_process_grp(struct nexthop_group *nhg,
--				 struct nhg_connected_tree_head *depends,
+ static int zebra_nhg_process_grp(struct nexthop_group *nhg,
+ 				 struct nhg_connected_tree_head *depends,
 -				 struct nh_grp *grp, uint8_t count,
-+static int zebra_nhg_process_grp(struct nexthop_group *nhg, struct nhg_connected_tree_head *depends,
 +				 struct nh_grp *grp, uint16_t count,
  				 struct nhg_resilience *resilience)
  {
  	nhg_connected_tree_init(depends);
-@@ -988,7 +987,7 @@ static struct nexthop *nhg_ctx_get_nh(struct nhg_ctx *ctx)
+@@ -988,7 +988,7 @@ static struct nexthop *nhg_ctx_get_nh(struct nhg_ctx *ctx)
  	return &ctx->u.nh;
  }
  
@@ -206,19 +206,16 @@ index 33d2344f51..734d2ac5eb 100644
  {
  	return ctx->count;
  }
-@@ -1034,9 +1033,8 @@ done:
- 	XFREE(MTYPE_NHG_CTX, *ctx);
- }
+@@ -1036,7 +1036,7 @@ done:
  
--static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh,
--				    struct nh_grp *grp, vrf_id_t vrf_id,
+ static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh,
+ 				    struct nh_grp *grp, vrf_id_t vrf_id,
 -				    afi_t afi, int type, uint8_t count,
-+static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
-+				    vrf_id_t vrf_id, afi_t afi, int type, uint16_t count,
++				    afi_t afi, int type, uint16_t count,
  				    struct nhg_resilience *resilience)
  {
  	struct nhg_ctx *ctx = NULL;
-@@ -1186,7 +1184,7 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
+@@ -1186,7 +1186,7 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
  	struct nhg_hash_entry *nhe = NULL;
  
  	uint32_t id = nhg_ctx_get_id(ctx);
@@ -227,29 +224,36 @@ index 33d2344f51..734d2ac5eb 100644
  	vrf_id_t vrf_id = nhg_ctx_get_vrf_id(ctx);
  	int type = nhg_ctx_get_type(ctx);
  	afi_t afi = nhg_ctx_get_afi(ctx);
-@@ -1337,9 +1335,9 @@ int nhg_ctx_process(struct nhg_ctx *ctx)
- }
+@@ -1338,7 +1338,7 @@ int nhg_ctx_process(struct nhg_ctx *ctx)
  
  /* Kernel-side, you either get a single new nexthop or a array of ID's */
--int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
+ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 -			  uint8_t count, vrf_id_t vrf_id, afi_t afi, int type,
--			  int startup, struct nhg_resilience *nhgr)
-+int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp, uint16_t count,
-+			  vrf_id_t vrf_id, afi_t afi, int type, int startup,
-+			  struct nhg_resilience *nhgr)
++			  uint16_t count, vrf_id_t vrf_id, afi_t afi, int type,
+ 			  int startup, struct nhg_resilience *nhgr)
  {
  	struct nhg_ctx *ctx = NULL;
- 
-@@ -2903,7 +2901,7 @@ backups_done:
+@@ -2903,14 +2903,14 @@ backups_done:
   * I'm pretty sure we only allow ONE level of group within group currently.
   * But making this recursive just in case that ever changes.
   */
 -static uint8_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp,
+-					  uint8_t curr_index,
+-					  struct nhg_hash_entry *nhe,
+-					  int max_num)
 +static uint16_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp,
- 					  uint8_t curr_index,
- 					  struct nhg_hash_entry *nhe,
- 					  int max_num)
-@@ -2999,8 +2997,7 @@ done:
++					   uint16_t curr_index,
++					   struct nhg_hash_entry *nhe,
++					   int max_num)
+ {
+ 	struct nhg_connected *rb_node_dep = NULL;
+ 	struct nhg_hash_entry *depend = NULL;
+-	uint8_t i = curr_index;
++	uint16_t i = curr_index;
+ 
+ 	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
+ 		bool duplicate = false;
+@@ -2999,8 +2999,7 @@ done:
  }
  
  /* Convert a nhe into a group array */
@@ -260,7 +264,7 @@ index 33d2344f51..734d2ac5eb 100644
  	/* Call into the recursive function */
  	return zebra_nhg_nhe2grp_internal(grp, 0, nhe, max_num);
 diff --git a/zebra/zebra_nhg.h b/zebra/zebra_nhg.h
-index 18914b7856..71f84cd356 100644
+index 18914b7856..d8279dea49 100644
 --- a/zebra/zebra_nhg.h
 +++ b/zebra/zebra_nhg.h
 @@ -220,7 +220,7 @@ struct nhg_ctx {
@@ -272,20 +276,16 @@ index 18914b7856..71f84cd356 100644
  
  	/* Its either a single nexthop or an array of ID's */
  	union {
-@@ -306,10 +306,8 @@ extern int nhg_ctx_process(struct nhg_ctx *ctx);
- void nhg_ctx_free(struct nhg_ctx **ctx);
+@@ -307,7 +307,7 @@ void nhg_ctx_free(struct nhg_ctx **ctx);
  
  /* Find via kernel nh creation */
--extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
+ extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
 -				 struct nh_grp *grp, uint8_t count,
--				 vrf_id_t vrf_id, afi_t afi, int type,
--				 int startup,
-+extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
-+				 uint16_t count, vrf_id_t vrf_id, afi_t afi, int type, int startup,
++				 struct nh_grp *grp, uint16_t count,
+ 				 vrf_id_t vrf_id, afi_t afi, int type,
+ 				 int startup,
  				 struct nhg_resilience *resilience);
- /* Del via kernel */
- extern int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id);
-@@ -368,8 +366,7 @@ extern void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe);
+@@ -368,8 +368,7 @@ extern void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe);
  extern void zebra_nhg_check_valid(struct nhg_hash_entry *nhe);
  
  /* Convert nhe depends to a grp context that can be passed around safely */
