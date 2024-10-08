@@ -37,6 +37,10 @@ startsecs=0
 dependent_startup=true
 {% endif %}
 
+[eventlistener:memmon]
+command=memmon -p rsyslogd=100MB
+events=TICK_60
+
 {% if not skip_chassisd and IS_MODULAR_CHASSIS == 1 %}
 [program:chassisd]
 command=/usr/local/bin/chassisd
