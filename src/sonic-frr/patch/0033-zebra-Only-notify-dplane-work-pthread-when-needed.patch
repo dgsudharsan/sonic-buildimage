@@ -1,0 +1,30 @@
+From 4157fa92b7695fc32f14dab1a3093fd92d297043 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Thu, 10 Oct 2024 16:00:08 -0400
+Subject: [PATCH] zebra: Only notify dplane work pthread when needed
+
+The fpm_nl_process function was getting the count
+of the total number of ctx's processed.  This leads
+to after having processed 1 context to always signal
+the dataplane that there is work to do.  Change the
+code to only notify the dplane worker when a context
+was actually added to the outgoing context queue.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+
+diff --git a/zebra/dplane_fpm_nl.c b/zebra/dplane_fpm_nl.c
+index caa2f988e2..b5c98cdf67 100644
+--- a/zebra/dplane_fpm_nl.c
++++ b/zebra/dplane_fpm_nl.c
+@@ -1402,7 +1402,7 @@ static void fpm_process_queue(struct thread *t)
+ 	 * until the dataplane thread gets scheduled for new,
+ 	 * unrelated work.
+ 	 */
+-	if (dplane_provider_out_ctx_queue_len(fnc->prov) > 0)
++	if (processed_contexts)
+ 		dplane_provider_work_ready();
+ }
+ 
+-- 
+2.43.2
+
