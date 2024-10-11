@@ -1,0 +1,62 @@
+From e7d269cd343900b037d2a9d87c7a9bb1166b8d5a Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Thu, 10 Oct 2024 20:08:32 -0400
+Subject: [PATCH] zebra: Slow down fpm_process_queue
+
+When the fpm_process_queue has run out of space
+but has written to the fpm output buffer, schedule
+it to wake up immediately, as that the write will go out
+pretty much immediately, since it was scheduled first.
+If the fpm_process_queue has not written to the output
+buffer then delay the processing by 10 milliseconds to
+allow a possibly backed up write processing to have a
+chance to complete it's work.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ zebra/dplane_fpm_nl.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/zebra/dplane_fpm_nl.c b/zebra/dplane_fpm_nl.c
+index caa2f988e2..4fedebc050 100644
+--- a/zebra/dplane_fpm_nl.c
++++ b/zebra/dplane_fpm_nl.c
+@@ -1353,6 +1353,7 @@ static void fpm_process_queue(struct thread *t)
+ 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+ 	struct zebra_dplane_ctx *ctx;
+ 	bool no_bufs = false;
++	bool wrote_data = false;
+ 	uint64_t processed_contexts = 0;
+ 
+ 	while (true) {
+@@ -1378,6 +1379,7 @@ static void fpm_process_queue(struct thread *t)
+ 		if (fnc->socket != -1)
+ 			(void)fpm_nl_enqueue(fnc, ctx);
+ 
++		wrote_data = true;
+ 		/* Account the processed entries. */
+ 		processed_contexts++;
+ 		atomic_fetch_sub_explicit(&fnc->counters.ctxqueue_len, 1,
+@@ -1392,10 +1394,16 @@ static void fpm_process_queue(struct thread *t)
+ 				  processed_contexts, memory_order_relaxed);
+ 
+ 	/* Re-schedule if we ran out of buffer space */
+-	if (no_bufs)
+-		thread_add_timer(fnc->fthread->master, fpm_process_queue,
+-				 fnc, 0, &fnc->t_dequeue);
+-
++	if (no_bufs) {
++		if (wrote_data)
++			thread_add_event(fnc->fthread->master,
++					 fpm_process_queue, fnc, 0,
++					 &fnc->t_dequeue);
++		else
++			thread_add_timer_msec(fnc->fthread->master,
++					      fpm_process_queue, fnc, 10,
++					      &fnc->t_dequeue);
++	}
+ 	/*
+ 	 * Let the dataplane thread know if there are items in the
+ 	 * output queue to be processed. Otherwise they may sit
+-- 
+2.34.1
