@@ -1,0 +1,33 @@
+From c82af753b767d0c5fdd6dd0ed2ac33e7e35a9c0f Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 11 Oct 2024 09:33:35 -0400
+Subject: [PATCH] fpm: Allow max fpm message size to float based on ecmp
+
+Currently the max message size is 4k.  With a 256 way
+ecmp FRR is seeing message sizes that are in the
+6k size.  There is desire to allow this to increase as
+well to 512.  Since the multipath size directly effects
+how big the message may be when sending the routes ecmp
+let's give a bit of headroom for this value when compiling
+FRR at greater sizes.  Additionally since we know not everyone
+is using such large ecmp, allow them to build as appropriate
+for their use cases.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+
+diff --git a/fpm/fpm.h b/fpm/fpm.h
+index 0da8a5a8be..6bcc8bc18d 100644
+--- a/fpm/fpm.h
++++ b/fpm/fpm.h
+@@ -100,7 +100,7 @@
+ /*
+  * Largest message that can be sent to or received from the FPM.
+  */
+-#define FPM_MAX_MSG_LEN 4096
++#define FPM_MAX_MSG_LEN MAX(MULTIPATH_NUM * 32, 4096)
+ 
+ #ifdef __SUNPRO_C
+ #pragma pack(1)
+-- 
+2.43.2
+

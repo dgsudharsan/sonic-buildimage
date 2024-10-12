@@ -1,0 +1,127 @@
+From 1127b7ace0f5a2bcc43e89ce452cc95669d74242 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 11 Oct 2024 14:01:10 -0400
+Subject: [PATCH] *: Fix up improper handling of nexthops for nexthop tracking
+
+Currently FRR needs to send a uint16_t value for the number
+of nexthops as well it needs the ability to properly decode
+all of this.  Find and handle all the places that this happens.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+
+diff --git a/lib/zclient.c b/lib/zclient.c
+index 0082b21485..b2988c6219 100644
+--- a/lib/zclient.c
++++ b/lib/zclient.c
+@@ -2072,7 +2072,7 @@ bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
+ 	STREAM_GETW(s, nhr->instance);
+ 	STREAM_GETC(s, nhr->distance);
+ 	STREAM_GETL(s, nhr->metric);
+-	STREAM_GETC(s, nhr->nexthop_num);
++	STREAM_GETW(s, nhr->nexthop_num);
+ 
+ 	for (i = 0; i < nhr->nexthop_num; i++) {
+ 		if (zapi_nexthop_decode(s, &(nhr->nexthops[i]), 0, 0) != 0)
+diff --git a/pimd/pim_zlookup.c b/pimd/pim_zlookup.c
+index 0481c3a769..6b4ce42276 100644
+--- a/pimd/pim_zlookup.c
++++ b/pimd/pim_zlookup.c
+@@ -209,7 +209,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
+ 
+ 	distance = stream_getc(s);
+ 	metric = stream_getl(s);
+-	nexthop_num = stream_getc(s);
++	nexthop_num = stream_getw(s);
+ 
+ 	if (nexthop_num < 1 || nexthop_num > router->multipath) {
+ 		if (PIM_DEBUG_PIM_NHT_DETAIL)
+diff --git a/staticd/static_zebra.c b/staticd/static_zebra.c
+index 85e4b1c033..a50d7a0a8f 100644
+--- a/staticd/static_zebra.c
++++ b/staticd/static_zebra.c
+@@ -56,7 +56,7 @@ struct static_nht_data {
+ 	vrf_id_t nh_vrf_id;
+ 
+ 	uint32_t refcount;
+-	uint8_t nh_num;
++	uint16_t nh_num;
+ 	bool registered;
+ };
+ 
+diff --git a/zebra/zapi_msg.c b/zebra/zapi_msg.c
+index cef101ba3c..4ff5b1c021 100644
+--- a/zebra/zapi_msg.c
++++ b/zebra/zapi_msg.c
+@@ -668,7 +668,7 @@ static int zsend_nexthop_lookup_mrib(struct zserv *client, struct ipaddr *addr,
+ {
+ 	struct stream *s;
+ 	unsigned long nump;
+-	uint8_t num;
++	uint16_t num;
+ 	struct nexthop *nexthop;
+ 
+ 	/* Get output stream. */
+@@ -688,7 +688,7 @@ static int zsend_nexthop_lookup_mrib(struct zserv *client, struct ipaddr *addr,
+ 		/* remember position for nexthop_num */
+ 		nump = stream_get_endp(s);
+ 		/* reserve room for nexthop_num */
+-		stream_putc(s, 0);
++		stream_putw(s, 0);
+ 		nhg = rib_get_fib_nhg(re);
+ 		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+ 			if (rnh_nexthop_valid(re, nexthop))
+@@ -696,11 +696,11 @@ static int zsend_nexthop_lookup_mrib(struct zserv *client, struct ipaddr *addr,
+ 		}
+ 
+ 		/* store nexthop_num */
+-		stream_putc_at(s, nump, num);
++		stream_putw_at(s, nump, num);
+ 	} else {
+ 		stream_putc(s, 0); /* distance */
+ 		stream_putl(s, 0); /* metric */
+-		stream_putc(s, 0); /* nexthop_num */
++		stream_putw(s, 0); /* nexthop_num */
+ 	}
+ 
+ 	stream_putw_at(s, 0, stream_get_endp(s));
+diff --git a/zebra/zebra_rnh.c b/zebra/zebra_rnh.c
+index e24556122b..7e303c697f 100644
+--- a/zebra/zebra_rnh.c
++++ b/zebra/zebra_rnh.c
+@@ -1152,7 +1152,7 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
+ 	struct stream *s = NULL;
+ 	struct route_entry *re;
+ 	unsigned long nump;
+-	uint8_t num;
++	uint16_t num;
+ 	struct nexthop *nh;
+ 	struct route_node *rn;
+ 	int ret;
+@@ -1223,7 +1223,7 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
+ 		stream_putl(s, re->metric);
+ 		num = 0;
+ 		nump = stream_get_endp(s);
+-		stream_putc(s, 0);
++		stream_putw(s, 0);
+ 
+ 		nhg = rib_get_fib_nhg(re);
+ 		for (ALL_NEXTHOPS_PTR(nhg, nh))
+@@ -1251,13 +1251,13 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
+ 				}
+ 		}
+ 
+-		stream_putc_at(s, nump, num);
++		stream_putw_at(s, nump, num);
+ 	} else {
+ 		stream_putc(s, 0); // type
+ 		stream_putw(s, 0); // instance
+ 		stream_putc(s, 0); // distance
+ 		stream_putl(s, 0); // metric
+-		stream_putc(s, 0); // nexthops
++		stream_putw(s, 0); // nexthops
+ 	}
+ 	stream_putw_at(s, 0, stream_get_endp(s));
+ 
+-- 
+2.43.2
+

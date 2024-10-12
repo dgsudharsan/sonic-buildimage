@@ -1,0 +1,694 @@
+From 7b621f3b4f3f0755ed9b1a2b02cd88bddf810f4e Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Mon, 17 Jun 2024 11:05:28 -0400
+Subject: [PATCH 1/6] zebra: Use the ctx queue counters
+
+The ctx queue data structures already have a counter
+associated with them.  Let's just use them instead.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ zebra/zebra_dplane.c | 33 ++++++++-------------------------
+ 1 file changed, 8 insertions(+), 25 deletions(-)
+
+diff --git a/zebra/zebra_dplane.c b/zebra/zebra_dplane.c
+index 75b58c30b2..732f7454ae 100644
+--- a/zebra/zebra_dplane.c
++++ b/zebra/zebra_dplane.c
+@@ -492,10 +492,8 @@ struct zebra_dplane_provider {
+ 	int (*dp_fini)(struct zebra_dplane_provider *prov, bool early_p);
+ 
+ 	_Atomic uint32_t dp_in_counter;
+-	_Atomic uint32_t dp_in_queued;
+ 	_Atomic uint32_t dp_in_max;
+ 	_Atomic uint32_t dp_out_counter;
+-	_Atomic uint32_t dp_out_queued;
+ 	_Atomic uint32_t dp_out_max;
+ 	_Atomic uint32_t dp_error_counter;
+ 
+@@ -6003,17 +6001,19 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
+ 
+ 	/* Show counters, useful info from each registered provider */
+ 	while (prov) {
++		dplane_provider_lock(prov);
++		in_q = dplane_ctx_queue_count(&prov->dp_ctx_in_list);
++		out_q = dplane_ctx_queue_count(&prov->dp_ctx_out_list);
++		dplane_provider_unlock(prov);
+ 
+ 		in = atomic_load_explicit(&prov->dp_in_counter,
+ 					  memory_order_relaxed);
+-		in_q = atomic_load_explicit(&prov->dp_in_queued,
+-					    memory_order_relaxed);
++
+ 		in_max = atomic_load_explicit(&prov->dp_in_max,
+ 					      memory_order_relaxed);
+ 		out = atomic_load_explicit(&prov->dp_out_counter,
+ 					   memory_order_relaxed);
+-		out_q = atomic_load_explicit(&prov->dp_out_queued,
+-					     memory_order_relaxed);
++
+ 		out_max = atomic_load_explicit(&prov->dp_out_max,
+ 					       memory_order_relaxed);
+ 
+@@ -6164,10 +6164,6 @@ struct zebra_dplane_ctx *dplane_provider_dequeue_in_ctx(
+ 	dplane_provider_lock(prov);
+ 
+ 	ctx = dplane_ctx_list_pop(&(prov->dp_ctx_in_list));
+-	if (ctx) {
+-		atomic_fetch_sub_explicit(&prov->dp_in_queued, 1,
+-					  memory_order_relaxed);
+-	}
+ 
+ 	dplane_provider_unlock(prov);
+ 
+@@ -6195,10 +6191,6 @@ int dplane_provider_dequeue_in_list(struct zebra_dplane_provider *prov,
+ 			break;
+ 	}
+ 
+-	if (ret > 0)
+-		atomic_fetch_sub_explicit(&prov->dp_in_queued, ret,
+-					  memory_order_relaxed);
+-
+ 	dplane_provider_unlock(prov);
+ 
+ 	return ret;
+@@ -6223,10 +6215,7 @@ void dplane_provider_enqueue_out_ctx(struct zebra_dplane_provider *prov,
+ 	dplane_ctx_list_add_tail(&(prov->dp_ctx_out_list), ctx);
+ 
+ 	/* Maintain out-queue counters */
+-	atomic_fetch_add_explicit(&(prov->dp_out_queued), 1,
+-				  memory_order_relaxed);
+-	curr = atomic_load_explicit(&prov->dp_out_queued,
+-				    memory_order_relaxed);
++	curr = dplane_ctx_queue_count(&prov->dp_ctx_out_list);
+ 	high = atomic_load_explicit(&prov->dp_out_max,
+ 				    memory_order_relaxed);
+ 	if (curr > high)
+@@ -6248,9 +6237,6 @@ dplane_provider_dequeue_out_ctx(struct zebra_dplane_provider *prov)
+ 	if (!ctx)
+ 		return NULL;
+ 
+-	atomic_fetch_sub_explicit(&(prov->dp_out_queued), 1,
+-				  memory_order_relaxed);
+-
+ 	return ctx;
+ }
+ 
+@@ -7255,10 +7241,7 @@ static void dplane_thread_loop(struct thread *event)
+ 
+ 		atomic_fetch_add_explicit(&prov->dp_in_counter, counter,
+ 					  memory_order_relaxed);
+-		atomic_fetch_add_explicit(&prov->dp_in_queued, counter,
+-					  memory_order_relaxed);
+-		curr = atomic_load_explicit(&prov->dp_in_queued,
+-					    memory_order_relaxed);
++		curr = dplane_ctx_queue_count(&prov->dp_ctx_in_list);
+ 		high = atomic_load_explicit(&prov->dp_in_max,
+ 					    memory_order_relaxed);
+ 		if (curr > high)
+-- 
+2.43.2
+
+
+From bd9b490fe9af32b9078a204d5fc4faefd2615a21 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Thu, 13 Jun 2024 15:30:00 -0400
+Subject: [PATCH 2/6] zebra: Use built in data structure counter
+
+Instead of keeping a counter that is independent
+of the queue's data structure.  Just use the queue's
+built-in counter.  Ensure that it's pthread safe by
+keeping it wrapped inside the mutex for adding/deleting
+to the queue.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ zebra/dplane_fpm_nl.c | 44 ++++++++++++++++++++-----------------------
+ zebra/zebra_dplane.c  |  5 +++++
+ zebra/zebra_dplane.h  |  2 ++
+ 3 files changed, 27 insertions(+), 24 deletions(-)
+
+diff --git a/zebra/dplane_fpm_nl.c b/zebra/dplane_fpm_nl.c
+index eb7b5d35f3..a667b1f8be 100644
+--- a/zebra/dplane_fpm_nl.c
++++ b/zebra/dplane_fpm_nl.c
+@@ -135,8 +135,6 @@ struct fpm_nl_ctx {
+ 
+ 		/* Amount of data plane context processed. */
+ 		_Atomic uint32_t dplane_contexts;
+-		/* Amount of data plane contexts enqueued. */
+-		_Atomic uint32_t ctxqueue_len;
+ 		/* Peak amount of data plane contexts enqueued. */
+ 		_Atomic uint32_t ctxqueue_len_peak;
+ 
+@@ -311,6 +309,12 @@ DEFUN(fpm_show_counters, fpm_show_counters_cmd,
+       FPM_STR
+       "FPM statistic counters\n")
+ {
++	uint32_t curr_queue_len;
++
++	frr_with_mutex (&gfnc->ctxqueue_mutex) {
++		curr_queue_len = dplane_ctx_queue_count(&gfnc->ctxqueue);
++	}
++
+ 	vty_out(vty, "%30s\n%30s\n", "FPM counters", "============");
+ 
+ #define SHOW_COUNTER(label, counter) \
+@@ -324,8 +328,7 @@ DEFUN(fpm_show_counters, fpm_show_counters_cmd,
+ 	SHOW_COUNTER("Connection errors", gfnc->counters.connection_errors);
+ 	SHOW_COUNTER("Data plane items processed",
+ 		     gfnc->counters.dplane_contexts);
+-	SHOW_COUNTER("Data plane items enqueued",
+-		     gfnc->counters.ctxqueue_len);
++	SHOW_COUNTER("Data plane items enqueued", curr_queue_len);
+ 	SHOW_COUNTER("Data plane items queue peak",
+ 		     gfnc->counters.ctxqueue_len_peak);
+ 	SHOW_COUNTER("Buffer full hits", gfnc->counters.buffer_full);
+@@ -344,6 +347,12 @@ DEFUN(fpm_show_counters_json, fpm_show_counters_json_cmd,
+       "FPM statistic counters\n"
+       JSON_STR)
+ {
++	uint32_t curr_queue_len;
++
++	frr_with_mutex (&gfnc->ctxqueue_mutex) {
++		curr_queue_len = dplane_ctx_queue_count(&gfnc->ctxqueue);
++	}
++
+ 	struct json_object *jo;
+ 
+ 	jo = json_object_new_object();
+@@ -357,8 +366,7 @@ DEFUN(fpm_show_counters_json, fpm_show_counters_json_cmd,
+ 			    gfnc->counters.connection_errors);
+ 	json_object_int_add(jo, "data-plane-contexts",
+ 			    gfnc->counters.dplane_contexts);
+-	json_object_int_add(jo, "data-plane-contexts-queue",
+-			    gfnc->counters.ctxqueue_len);
++	json_object_int_add(jo, "data-plane-contexts-queue", curr_queue_len);
+ 	json_object_int_add(jo, "data-plane-contexts-queue-peak",
+ 			    gfnc->counters.ctxqueue_len_peak);
+ 	json_object_int_add(jo, "buffer-full-hits", gfnc->counters.buffer_full);
+@@ -1382,8 +1390,6 @@ static void fpm_process_queue(struct thread *t)
+ 		wrote_data = true;
+ 		/* Account the processed entries. */
+ 		processed_contexts++;
+-		atomic_fetch_sub_explicit(&fnc->counters.ctxqueue_len, 1,
+-					  memory_order_relaxed);
+ 
+ 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
+ 		dplane_provider_enqueue_out_ctx(fnc->prov, ctx);
+@@ -1558,7 +1564,7 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
+ 	struct zebra_dplane_ctx *ctx;
+ 	struct fpm_nl_ctx *fnc;
+ 	int counter, limit;
+-	uint64_t cur_queue, peak_queue = 0, stored_peak_queue;
++	uint64_t cur_queue = 0, peak_queue = 0, stored_peak_queue;
+ 
+ 	fnc = dplane_provider_get_data(prov);
+ 	limit = dplane_provider_get_work_limit(prov);
+@@ -1572,20 +1578,12 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
+ 		 * anyway.
+ 		 */
+ 		if (fnc->socket != -1 && fnc->connecting == false) {
+-			/*
+-			 * Update the number of queued contexts *before*
+-			 * enqueueing, to ensure counter consistency.
+-			 */
+-			atomic_fetch_add_explicit(&fnc->counters.ctxqueue_len,
+-						  1, memory_order_relaxed);
+-
+ 			frr_with_mutex (&fnc->ctxqueue_mutex) {
+ 				dplane_ctx_enqueue_tail(&fnc->ctxqueue, ctx);
++				cur_queue =
++					dplane_ctx_queue_count(&fnc->ctxqueue);
+ 			}
+ 
+-			cur_queue = atomic_load_explicit(
+-				&fnc->counters.ctxqueue_len,
+-				memory_order_relaxed);
+ 			if (peak_queue < cur_queue)
+ 				peak_queue = cur_queue;
+ 			continue;
+@@ -1602,11 +1600,9 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
+ 		atomic_store_explicit(&fnc->counters.ctxqueue_len_peak,
+ 				      peak_queue, memory_order_relaxed);
+ 
+-	if (atomic_load_explicit(&fnc->counters.ctxqueue_len,
+-				 memory_order_relaxed)
+-	    > 0)
+-		thread_add_timer(fnc->fthread->master, fpm_process_queue,
+-				 fnc, 0, &fnc->t_dequeue);
++	if (cur_queue > 0)
++		thread_add_event(fnc->fthread->master, fpm_process_queue, fnc,
++				 0, &fnc->t_dequeue);
+ 
+ 	/* Ensure dataplane thread is rescheduled if we hit the work limit */
+ 	if (counter >= limit)
+diff --git a/zebra/zebra_dplane.c b/zebra/zebra_dplane.c
+index 732f7454ae..9154f7d0cc 100644
+--- a/zebra/zebra_dplane.c
++++ b/zebra/zebra_dplane.c
+@@ -967,6 +967,11 @@ struct zebra_dplane_ctx *dplane_ctx_dequeue(struct dplane_ctx_list_head *q)
+ 	return ctx;
+ }
+ 
++uint32_t dplane_ctx_queue_count(struct dplane_ctx_list_head *q)
++{
++	return dplane_ctx_list_count(q);
++}
++
+ /*
+  * Accessors for information from the context object
+  */
+diff --git a/zebra/zebra_dplane.h b/zebra/zebra_dplane.h
+index c61a7fbbd7..c1e8e0b631 100644
+--- a/zebra/zebra_dplane.h
++++ b/zebra/zebra_dplane.h
+@@ -324,6 +324,8 @@ struct zebra_dplane_ctx *dplane_ctx_get_head(struct dplane_ctx_list_head *q);
+ /* Init a list of contexts */
+ void dplane_ctx_q_init(struct dplane_ctx_list_head *q);
+ 
++uint32_t dplane_ctx_queue_count(struct dplane_ctx_list_head *q);
++
+ /*
+  * Accessors for information from the context object
+  */
+-- 
+2.43.2
+
+
+From ca86555802cb1a77f0b202bab99bfc0907ce971d Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Wed, 12 Jun 2024 14:14:48 -0400
+Subject: [PATCH 3/6] zebra: Modify dplane loop to allow backpressure to filter
+ up
+
+Currently when the dplane_thread_loop is run, it moves contexts
+from the dg_update_list and puts the contexts on the input queue
+of the first provider.  This provider is given a chance to run
+and then the items on the output queue are pulled off and placed
+on the input queue of the next provider.  Rinse/Repeat down through
+the entire list of providers.  Now imagine that we have a list
+of multiple providers and the last provider is getting backed up.
+Contexts will end up sticking in the input Queue of the `slow`
+provider.  This can grow without bounds.  This is a real problem
+when you have a situation where an interface is flapping and an
+upper level protocol is sending a continous stream of route
+updates to reflect the change in ecmp.  You can end up with
+a very very large backlog of contexts.  This is bad because
+zebra can easily grow to a very very large memory size and on
+restricted systems you can run out of memory.  Fortunately
+for us, the MetaQ already participates with this process
+by not doing more route processing until the dg_update_list
+goes below the working limit of dg_updates_per_cycle.  Thus
+if FRR modifies the behavior of this loop to not move more
+contexts onto the input queue if either the input queue
+or output queue of the next provider has reached this limit.
+FRR will naturaly start auto handling backpressure for the dplane
+context system and memory will not go out of control.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ zebra/zebra_dplane.c | 114 +++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 94 insertions(+), 20 deletions(-)
+
+diff --git a/zebra/zebra_dplane.c b/zebra/zebra_dplane.c
+index 9154f7d0cc..21375b9a5c 100644
+--- a/zebra/zebra_dplane.c
++++ b/zebra/zebra_dplane.c
+@@ -7155,10 +7155,10 @@ static void dplane_thread_loop(struct thread *event)
+ {
+ 	struct dplane_ctx_list_head work_list;
+ 	struct dplane_ctx_list_head error_list;
+-	struct zebra_dplane_provider *prov;
++	struct zebra_dplane_provider *prov, *next_prov;
+ 	struct zebra_dplane_ctx *ctx;
+ 	int limit, counter, error_counter;
+-	uint64_t curr, high;
++	uint64_t curr, out_curr, high;
+ 	bool reschedule = false;
+ 
+ 	/* Capture work limit per cycle */
+@@ -7182,18 +7182,48 @@ static void dplane_thread_loop(struct thread *event)
+ 	/* Locate initial registered provider */
+ 	prov = dplane_prov_list_first(&zdplane_info.dg_providers);
+ 
+-	/* Move new work from incoming list to temp list */
+-	for (counter = 0; counter < limit; counter++) {
+-		ctx = dplane_ctx_list_pop(&zdplane_info.dg_update_list);
+-		if (ctx) {
+-			ctx->zd_provider = prov->dp_id;
++	curr = dplane_ctx_queue_count(&prov->dp_ctx_in_list);
++	out_curr = dplane_ctx_queue_count(&prov->dp_ctx_out_list);
+ 
+-			dplane_ctx_list_add_tail(&work_list, ctx);
+-		} else {
+-			break;
++	if (curr >= (uint64_t)limit) {
++		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
++			zlog_debug("%s: Current first provider(%s) Input queue is %" PRIu64
++				   ", holding off work",
++				   __func__, prov->dp_name, curr);
++		counter = 0;
++	} else if (out_curr >= (uint64_t)limit) {
++		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
++			zlog_debug("%s: Current first provider(%s) Output queue is %" PRIu64
++				   ", holding off work",
++				   __func__, prov->dp_name, out_curr);
++		counter = 0;
++	} else {
++		int tlimit;
++		/*
++		 * Let's limit the work to how what can be put on the
++		 * in or out queue without going over
++		 */
++		tlimit = limit - MAX(curr, out_curr);
++		/* Move new work from incoming list to temp list */
++		for (counter = 0; counter < tlimit; counter++) {
++			ctx = dplane_ctx_list_pop(&zdplane_info.dg_update_list);
++			if (ctx) {
++				ctx->zd_provider = prov->dp_id;
++
++				dplane_ctx_list_add_tail(&work_list, ctx);
++			} else {
++				break;
++			}
+ 		}
+ 	}
+ 
++	/*
++	 * If there is anything still on the two input queues reschedule
++	 */
++	if (dplane_ctx_queue_count(&prov->dp_ctx_in_list) > 0 ||
++	    dplane_ctx_queue_count(&zdplane_info.dg_update_list) > 0)
++		reschedule = true;
++
+ 	DPLANE_UNLOCK();
+ 
+ 	atomic_fetch_sub_explicit(&zdplane_info.dg_routes_queued, counter,
+@@ -7212,8 +7242,9 @@ static void dplane_thread_loop(struct thread *event)
+ 		 * items.
+ 		 */
+ 		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+-			zlog_debug("dplane enqueues %d new work to provider '%s'",
+-				   counter, dplane_provider_get_name(prov));
++			zlog_debug("dplane enqueues %d new work to provider '%s' curr is %" PRIu64,
++				   counter, dplane_provider_get_name(prov),
++				   curr);
+ 
+ 		/* Capture current provider id in each context; check for
+ 		 * error status.
+@@ -7271,18 +7302,61 @@ static void dplane_thread_loop(struct thread *event)
+ 		if (!zdplane_info.dg_run)
+ 			break;
+ 
++		/* Locate next provider */
++		next_prov = dplane_prov_list_next(&zdplane_info.dg_providers,
++						  prov);
++		if (next_prov) {
++			curr = dplane_ctx_queue_count(
++				&next_prov->dp_ctx_in_list);
++			out_curr = dplane_ctx_queue_count(
++				&next_prov->dp_ctx_out_list);
++		} else
++			out_curr = curr = 0;
++
+ 		/* Dequeue completed work from the provider */
+ 		dplane_provider_lock(prov);
+ 
+-		while (counter < limit) {
+-			ctx = dplane_provider_dequeue_out_ctx(prov);
+-			if (ctx) {
+-				dplane_ctx_list_add_tail(&work_list, ctx);
+-				counter++;
+-			} else
+-				break;
++		if (curr >= (uint64_t)limit) {
++			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
++				zlog_debug("%s: Next Provider(%s) Input queue is %" PRIu64
++					   ", holding off work",
++					   __func__, next_prov->dp_name, curr);
++			counter = 0;
++		} else if (out_curr >= (uint64_t)limit) {
++			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
++				zlog_debug("%s: Next Provider(%s) Output queue is %" PRIu64
++					   ", holding off work",
++					   __func__, next_prov->dp_name,
++					   out_curr);
++			counter = 0;
++		} else {
++			int tlimit;
++
++			/*
++			 * Let's limit the work to how what can be put on the
++			 * in or out queue without going over
++			 */
++			tlimit = limit - MAX(curr, out_curr);
++			while (counter < tlimit) {
++				ctx = dplane_provider_dequeue_out_ctx(prov);
++				if (ctx) {
++					dplane_ctx_list_add_tail(&work_list,
++								 ctx);
++					counter++;
++				} else
++					break;
++			}
+ 		}
+ 
++		/*
++		 * Let's check if there are still any items on the
++		 * input or output queus of the current provider
++		 * if so then we know we need to reschedule.
++		 */
++		if (dplane_ctx_queue_count(&prov->dp_ctx_in_list) > 0 ||
++		    dplane_ctx_queue_count(&prov->dp_ctx_out_list) > 0)
++			reschedule = true;
++
+ 		dplane_provider_unlock(prov);
+ 
+ 		if (counter >= limit)
+@@ -7293,7 +7367,7 @@ static void dplane_thread_loop(struct thread *event)
+ 				   counter, dplane_provider_get_name(prov));
+ 
+ 		/* Locate next provider */
+-		prov = dplane_prov_list_next(&zdplane_info.dg_providers, prov);
++		prov = next_prov;
+ 	}
+ 
+ 	/*
+-- 
+2.43.2
+
+
+From 318a65cb3899fc3dbc4212b3dd4c09e2b8813548 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Wed, 12 Jun 2024 15:16:08 -0400
+Subject: [PATCH 4/6] zebra: Limit queue depth in dplane_fpm_nl
+
+The dplane providers have a concept of input queues
+and output queues.  These queues are chained together
+during normal operation.  The code in zebra also has
+a feedback mechanism where the MetaQ will not run when
+the first input queue is backed up.  Having the dplane_fpm_nl
+code grab all contexts when it is backed up prevents
+this system from behaving appropriately.
+
+Modify the code to not add to the dplane_fpm_nl's internal
+queue when it is already full.  This will allow the backpressure
+to work appropriately in zebra proper.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ zebra/dplane_fpm_nl.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/zebra/dplane_fpm_nl.c b/zebra/dplane_fpm_nl.c
+index a667b1f8be..c2e4cba70c 100644
+--- a/zebra/dplane_fpm_nl.c
++++ b/zebra/dplane_fpm_nl.c
+@@ -1568,6 +1568,25 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
+ 
+ 	fnc = dplane_provider_get_data(prov);
+ 	limit = dplane_provider_get_work_limit(prov);
++
++	frr_with_mutex (&fnc->ctxqueue_mutex) {
++		cur_queue = dplane_ctx_queue_count(&fnc->ctxqueue);
++	}
++
++	if (cur_queue >= (uint64_t)limit) {
++		if (IS_ZEBRA_DEBUG_FPM)
++			zlog_debug("%s: Already at a limit(%" PRIu64
++				   ") of internal work, hold off",
++				   __func__, cur_queue);
++		limit = 0;
++	} else if (cur_queue != 0) {
++		if (IS_ZEBRA_DEBUG_FPM)
++			zlog_debug("%s: current queue is %" PRIu64
++				   ", limiting to lesser amount of %" PRIu64,
++				   __func__, cur_queue, limit - cur_queue);
++		limit -= cur_queue;
++	}
++
+ 	for (counter = 0; counter < limit; counter++) {
+ 		ctx = dplane_provider_dequeue_in_ctx(prov);
+ 		if (ctx == NULL)
+-- 
+2.43.2
+
+
+From ef7d8027a3c3211ee1b096bb6cac6d8f75dc0dc5 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Mon, 17 Jun 2024 10:42:41 -0400
+Subject: [PATCH 5/6] zebra: Modify show `zebra dplane providers` to give more
+ data
+
+The show zebra dplane provider command was ommitting
+the input and output queues to the dplane itself.
+It would be nice to have this insight as well.
+
+New output:
+r1# show zebra dplane providers
+dataplane Incoming Queue from Zebra: 100
+Zebra dataplane providers:
+  Kernel (1): in: 6, q: 0, q_max: 3, out: 6, q: 14, q_max: 3
+  dplane_fpm_nl (2): in: 6, q: 10, q_max: 3, out: 6, q: 0, q_max: 3
+dataplane Outgoing Queue to Zebra: 43
+r1#
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ zebra/rib.h          |  1 +
+ zebra/zebra_dplane.c | 18 +++++++++++++-----
+ zebra/zebra_rib.c    | 11 +++++++++++
+ 3 files changed, 25 insertions(+), 5 deletions(-)
+
+diff --git a/zebra/rib.h b/zebra/rib.h
+index 2e62148ea0..b78cd218f6 100644
+--- a/zebra/rib.h
++++ b/zebra/rib.h
+@@ -630,6 +630,7 @@ static inline struct nexthop_group *rib_get_fib_backup_nhg(
+ }
+ 
+ extern void zebra_vty_init(void);
++extern uint32_t zebra_rib_dplane_results_count(void);
+ 
+ extern pid_t pid;
+ 
+diff --git a/zebra/zebra_dplane.c b/zebra/zebra_dplane.c
+index 21375b9a5c..28fc210a10 100644
+--- a/zebra/zebra_dplane.c
++++ b/zebra/zebra_dplane.c
+@@ -5998,12 +5998,14 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
+ 	struct zebra_dplane_provider *prov;
+ 	uint64_t in, in_q, in_max, out, out_q, out_max;
+ 
+-	vty_out(vty, "Zebra dataplane providers:\n");
+-
+ 	DPLANE_LOCK();
+ 	prov = dplane_prov_list_first(&zdplane_info.dg_providers);
++	in = dplane_ctx_queue_count(&zdplane_info.dg_update_list);
+ 	DPLANE_UNLOCK();
+ 
++	vty_out(vty, "dataplane Incoming Queue from Zebra: %" PRIu64 "\n", in);
++	vty_out(vty, "Zebra dataplane providers:\n");
++
+ 	/* Show counters, useful info from each registered provider */
+ 	while (prov) {
+ 		dplane_provider_lock(prov);
+@@ -6022,13 +6024,19 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
+ 		out_max = atomic_load_explicit(&prov->dp_out_max,
+ 					       memory_order_relaxed);
+ 
+-		vty_out(vty, "%s (%u): in: %"PRIu64", q: %"PRIu64", q_max: %"PRIu64", out: %"PRIu64", q: %"PRIu64", q_max: %"PRIu64"\n",
+-			prov->dp_name, prov->dp_id, in, in_q, in_max,
+-			out, out_q, out_max);
++		vty_out(vty,
++			"  %s (%u): in: %" PRIu64 ", q: %" PRIu64
++			", q_max: %" PRIu64 ", out: %" PRIu64 ", q: %" PRIu64
++			", q_max: %" PRIu64 "\n",
++			prov->dp_name, prov->dp_id, in, in_q, in_max, out,
++			out_q, out_max);
+ 
+ 		prov = dplane_prov_list_next(&zdplane_info.dg_providers, prov);
+ 	}
+ 
++	out = zebra_rib_dplane_results_count();
++	vty_out(vty, "dataplane Outgoing Queue to Zebra: %" PRIu64 "\n", out);
++
+ 	return CMD_SUCCESS;
+ }
+ 
+diff --git a/zebra/zebra_rib.c b/zebra/zebra_rib.c
+index 1ff3d98545..ae051d37eb 100644
+--- a/zebra/zebra_rib.c
++++ b/zebra/zebra_rib.c
+@@ -4874,6 +4874,17 @@ static int rib_dplane_results(struct dplane_ctx_list_head *ctxlist)
+ 	return 0;
+ }
+ 
++uint32_t zebra_rib_dplane_results_count(void)
++{
++	uint32_t count;
++
++	frr_with_mutex (&dplane_mutex) {
++		count = dplane_ctx_queue_count(&rib_dplane_q);
++	}
++
++	return count;
++}
++
+ /*
+  * Ensure there are no empty slots in the route_info array.
+  * Every route type in zebra should be present there.
+-- 
+2.43.2
+
+
+From 75427496e941d90e1935a0e7590790ec6b1616fc Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 14 Jun 2024 13:36:51 -0400
+Subject: [PATCH 6/6] zebra: Prevent starvation in dplane_thread_loop
+
+When removing a large number of routes, the linux kernel can take the
+cpu for an extended amount of time, leaving a situation where FRR
+detects a starvation event.
+
+r1# sharp install routes 10.0.0.0 nexthop 192.168.44.33 1000000 repeat 10
+2024-06-14 12:55:49.365 [NTFY] sharpd: [M7Q4P-46WDR] vty[5]@# sharp install routes 10.0.0.0 nexthop 192.168.44.33 1000000 repeat 10
+2024-06-14 12:55:49.365 [DEBG] sharpd: [YP4TQ-01TYK] Inserting 1000000 routes
+2024-06-14 12:55:57.256 [DEBG] sharpd: [TPHKD-3NYSB] Installed All Items 7.890085
+2024-06-14 12:55:57.256 [DEBG] sharpd: [YJ486-NX5R1] Removing 1000000 routes
+2024-06-14 12:56:07.802 [WARN] zebra: [QH9AB-Y4XMZ][EC 100663314] STARVATION: task dplane_thread_loop (634377bc8f9e) ran for 7078ms (cpu time 220ms)
+2024-06-14 12:56:25.039 [DEBG] sharpd: [WTN53-GK9Y5] Removed all Items 27.783668
+2024-06-14 12:56:25.039 [DEBG] sharpd: [YP4TQ-01TYK] Inserting 1000000 routes
+2024-06-14 12:56:32.783 [DEBG] sharpd: [TPHKD-3NYSB] Installed All Items 7.743524
+2024-06-14 12:56:32.783 [DEBG] sharpd: [YJ486-NX5R1] Removing 1000000 routes
+2024-06-14 12:56:41.447 [WARN] zebra: [QH9AB-Y4XMZ][EC 100663314] STARVATION: task dplane_thread_loop (634377bc8f9e) ran for 5175ms (cpu time 179ms)
+
+Let's modify the loop in dplane_thread_loop such that after a provider
+has been run, check to see if the event should yield, if so, stop
+and reschedule this for the future.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ zebra/zebra_dplane.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/zebra/zebra_dplane.c b/zebra/zebra_dplane.c
+index 28fc210a10..b03ecdeffe 100644
+--- a/zebra/zebra_dplane.c
++++ b/zebra/zebra_dplane.c
+@@ -7374,6 +7374,11 @@ static void dplane_thread_loop(struct thread *event)
+ 			zlog_debug("dplane dequeues %d completed work from provider %s",
+ 				   counter, dplane_provider_get_name(prov));
+ 
++		if (thread_should_yield(event)) {
++			reschedule = true;
++			break;
++		}
++
+ 		/* Locate next provider */
+ 		prov = next_prov;
+ 	}
+-- 
+2.43.2
+
