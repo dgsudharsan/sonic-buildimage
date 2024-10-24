@@ -70,6 +70,8 @@ route-map HIDE_INTERNAL permit 20
 router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
 !
 {% block bgp_init %}
+  write-quanta 1
+  read-quanta 1
   bgp log-neighbor-changes
   no bgp default ipv4-unicast
   no bgp ebgp-requires-policy
