@@ -1,0 +1,21 @@
+From 19123aa7be5a3714592151f9a7951eba37a7fc31 Mon Sep 17 00:00:00 2001
+From: dgsudharsan <sudharsand@nvidia.com>
+Date: Fri, 1 Nov 2024 06:10:18 +0000
+Subject: [PATCH] Removing bgp vnc
+
+
+diff --git a/debian/rules b/debian/rules
+index 2618a4a4c9..e280b6c45b 100755
+--- a/debian/rules
++++ b/debian/rules
+@@ -68,7 +68,6 @@ override_dh_auto_configure:
+ 		--disable-protobuf \
+ 		--disable-zeromq \
+ 		--enable-ospfapi \
+-		--enable-bgp-vnc \
+ 		--enable-multipath=512 \
+ 		\
+ 		--enable-user=frr \
+-- 
+2.43.2
+

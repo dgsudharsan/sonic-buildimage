@@ -58,3 +58,5 @@
 0058-Allow-max-fpm-message-size-to-float-based-on-ecm.patch
 0059-Fix-up-improper-handling-of-nexthops-for-nexthop-tra.patch
 0060-mpath-backport.patch
+0061-Remove-in6addr-cmp.patch
+0062-Removing-bgp-vnc.patch
