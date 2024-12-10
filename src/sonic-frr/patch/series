@@ -42,3 +42,11 @@
 0060-bgpd-Validate-both-nexthop-information-NEXTHOP-and-N.patch
 0061-Set-multipath-to-514-and-disable-bgp-vnc-for-optimiz.patch
 0062-zebra-lib-use-internal-rbtree-per-ns.patch
+0063-lib-nexthop-code-should-use-uint16_t-for-nexthop-cou.patch
+0064-Allow-16-bit-size-for-nexthops.patch
+0065-zebra-Only-notify-dplane-work-pthread-when-needed.patch
+0066-Fix-up-improper-handling-of-nexthops-for-nexthop-tra.patch
+0067-bgp-best-path-reordering.patch
+0068-bgp-mp-info-changes.patch
+0069-remove-in6addr-cmp.patch
+0070-Optimizations-and-problem-fixing-for-large-scale-ecmp-from-bgp.patch
