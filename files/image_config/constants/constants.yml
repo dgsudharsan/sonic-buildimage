@@ -24,6 +24,7 @@ constants:
       enabled: true
       ipv4: 514
       ipv6: 514
+    update_delay: 20
     allow_list:
       enabled: true
       default_action: "permit"   # or "deny"

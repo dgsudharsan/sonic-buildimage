@@ -65,6 +65,10 @@ route-map HIDE_INTERNAL permit 20
 !
 {% endif %}
 !
+{% if constants.bgp.update_delay is defined %}
+bgp update-delay {{ constants.bgp.update_delay }}
+{% endif %}
+!
 {% if (DEVICE_METADATA is defined) and ('localhost' in DEVICE_METADATA) and ('bgp_asn' in DEVICE_METADATA['localhost']) and (DEVICE_METADATA['localhost']['bgp_asn'].lower() != 'none') and (DEVICE_METADATA['localhost']['bgp_asn'].lower() != 'null') %}
 router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
 !
