@@ -46,7 +46,4 @@
 0064-Allow-16-bit-size-for-nexthops.patch
 0065-zebra-Only-notify-dplane-work-pthread-when-needed.patch
 0066-Fix-up-improper-handling-of-nexthops-for-nexthop-tra.patch
-0067-bgp-best-path-reordering.patch
-0068-bgp-mp-info-changes.patch
 0069-remove-in6addr-cmp.patch
-0070-Optimizations-and-problem-fixing-for-large-scale-ecmp-from-bgp.patch
