@@ -1,7 +1,152 @@
-From 09edd1a226d88eea89892126ebf2c8b16b52c607 Mon Sep 17 00:00:00 2001
+From b6345ad2f34f78470f8839a21eba6e234f011cfa Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Mon, 11 Mar 2024 15:26:14 -0400
+Subject: [PATCH 01/11] tests: Explicitly call out bgp timers for bgp_evpn_mh
+ test
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ tests/topotests/bgp_evpn_mh/leaf1/evpn.conf  | 1 +
+ tests/topotests/bgp_evpn_mh/leaf2/evpn.conf  | 1 +
+ tests/topotests/bgp_evpn_mh/spine1/evpn.conf | 1 +
+ tests/topotests/bgp_evpn_mh/spine2/evpn.conf | 1 +
+ tests/topotests/bgp_evpn_mh/torm11/evpn.conf | 1 +
+ tests/topotests/bgp_evpn_mh/torm12/evpn.conf | 1 +
+ tests/topotests/bgp_evpn_mh/torm21/evpn.conf | 1 +
+ tests/topotests/bgp_evpn_mh/torm22/evpn.conf | 1 +
+ 8 files changed, 8 insertions(+)
+
+diff --git a/tests/topotests/bgp_evpn_mh/leaf1/evpn.conf b/tests/topotests/bgp_evpn_mh/leaf1/evpn.conf
+index 33b6d08aba..d246517898 100644
+--- a/tests/topotests/bgp_evpn_mh/leaf1/evpn.conf
++++ b/tests/topotests/bgp_evpn_mh/leaf1/evpn.conf
+@@ -1,6 +1,7 @@
+ frr defaults datacenter
+ !
+ router bgp 65101
++  timers bgp 3 10
+   bgp router-id 192.168.100.13
+   no bgp ebgp-requires-policy
+   neighbor 192.168.50.1 remote-as external
+diff --git a/tests/topotests/bgp_evpn_mh/leaf2/evpn.conf b/tests/topotests/bgp_evpn_mh/leaf2/evpn.conf
+index 428998b0fe..6855a436d4 100644
+--- a/tests/topotests/bgp_evpn_mh/leaf2/evpn.conf
++++ b/tests/topotests/bgp_evpn_mh/leaf2/evpn.conf
+@@ -1,6 +1,7 @@
+ frr defaults datacenter
+ !
+ router bgp 65101
++  timers bgp 3 10
+   bgp router-id 192.168.100.14
+   no bgp ebgp-requires-policy
+   neighbor 192.168.61.1 remote-as external
+diff --git a/tests/topotests/bgp_evpn_mh/spine1/evpn.conf b/tests/topotests/bgp_evpn_mh/spine1/evpn.conf
+index b9fce46ea4..7d6fef699d 100644
+--- a/tests/topotests/bgp_evpn_mh/spine1/evpn.conf
++++ b/tests/topotests/bgp_evpn_mh/spine1/evpn.conf
+@@ -1,6 +1,7 @@
+ frr defaults datacenter
+ !
+ router bgp 65001
++  timers bgp 3 10
+   bgp router-id 192.168.100.13
+   no bgp ebgp-requires-policy
+   neighbor 192.168.50.2 remote-as external
+diff --git a/tests/topotests/bgp_evpn_mh/spine2/evpn.conf b/tests/topotests/bgp_evpn_mh/spine2/evpn.conf
+index 1430e10b68..c651ada686 100644
+--- a/tests/topotests/bgp_evpn_mh/spine2/evpn.conf
++++ b/tests/topotests/bgp_evpn_mh/spine2/evpn.conf
+@@ -1,6 +1,7 @@
+ frr defaults datacenter
+ !
+ router bgp 65001
++  timers bgp 3 10
+   bgp router-id 192.168.100.14
+   no bgp ebgp-requires-policy
+   neighbor 192.168.60.2 remote-as external
+diff --git a/tests/topotests/bgp_evpn_mh/torm11/evpn.conf b/tests/topotests/bgp_evpn_mh/torm11/evpn.conf
+index 2c1c695a18..62b7ec5855 100644
+--- a/tests/topotests/bgp_evpn_mh/torm11/evpn.conf
++++ b/tests/topotests/bgp_evpn_mh/torm11/evpn.conf
+@@ -7,6 +7,7 @@ frr defaults datacenter
+ !
+ !
+ router bgp 65002
++  timers bgp 3 10
+   bgp router-id 192.168.100.15
+   no bgp ebgp-requires-policy
+   neighbor 192.168.1.1 remote-as external
+diff --git a/tests/topotests/bgp_evpn_mh/torm12/evpn.conf b/tests/topotests/bgp_evpn_mh/torm12/evpn.conf
+index 8b0ce1d98f..3ceb974c47 100644
+--- a/tests/topotests/bgp_evpn_mh/torm12/evpn.conf
++++ b/tests/topotests/bgp_evpn_mh/torm12/evpn.conf
+@@ -7,6 +7,7 @@ frr defaults datacenter
+ !
+ !
+ router bgp 65003
++  timers bgp 3 10
+   bgp router-id 192.168.100.16
+   no bgp ebgp-requires-policy
+   neighbor 192.168.2.1 remote-as external
+diff --git a/tests/topotests/bgp_evpn_mh/torm21/evpn.conf b/tests/topotests/bgp_evpn_mh/torm21/evpn.conf
+index 5247dc1ebd..ecaf85ddb7 100644
+--- a/tests/topotests/bgp_evpn_mh/torm21/evpn.conf
++++ b/tests/topotests/bgp_evpn_mh/torm21/evpn.conf
+@@ -7,6 +7,7 @@ frr defaults datacenter
+ !
+ !
+ router bgp 65004
++  timers bgp 3 10
+   bgp router-id 192.168.100.17
+   no bgp ebgp-requires-policy
+   neighbor 192.168.3.1 remote-as external
+diff --git a/tests/topotests/bgp_evpn_mh/torm22/evpn.conf b/tests/topotests/bgp_evpn_mh/torm22/evpn.conf
+index ec56360176..c7e152498c 100644
+--- a/tests/topotests/bgp_evpn_mh/torm22/evpn.conf
++++ b/tests/topotests/bgp_evpn_mh/torm22/evpn.conf
+@@ -6,6 +6,7 @@ frr defaults datacenter
+ ! debug bgp zebra
+ !
+ router bgp 65005
++  timers bgp 3 10
+   bgp router-id 192.168.100.18
+   no bgp ebgp-requires-policy
+   neighbor 192.168.4.1 remote-as external
+-- 
+2.43.2
+
+
+From da25ab9fa54cad2db494becf0645da8fdad5b414 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Mon, 11 Mar 2024 14:40:49 -0400
+Subject: [PATCH 02/11] tests: teste_ospf_rte_calc.py uses bgp add pytest mark
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ tests/topotests/ospf_basic_functionality/test_ospf_rte_calc.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tests/topotests/ospf_basic_functionality/test_ospf_rte_calc.py b/tests/topotests/ospf_basic_functionality/test_ospf_rte_calc.py
+index f0950a2db3..45c1325917 100644
+--- a/tests/topotests/ospf_basic_functionality/test_ospf_rte_calc.py
++++ b/tests/topotests/ospf_basic_functionality/test_ospf_rte_calc.py
+@@ -49,7 +49,7 @@ from lib.ospf import (
+     verify_ospf_interface,
+ )
+ 
+-pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
++pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd, pytest.mark.staticd]
+ 
+ 
+ # Global variables
+-- 
+2.43.2
+
+
+From fc76785fe670153941b1f320fabc2ca9c1511e33 Mon Sep 17 00:00:00 2001
 From: Donald Sharp <sharpd@nvidia.com>
 Date: Mon, 11 Mar 2024 11:22:49 -0400
-Subject: [PATCH 1/9] bgpd: Modify update_evpn_type5_route_entry to include
+Subject: [PATCH 03/11] bgpd: Modify update_evpn_type5_route_entry to include
  path_info pointer
 
 Modify update_evpn_type5_route_entry to return a pointer to the
@@ -68,10 +213,10 @@ index 405e9a84bb..c7f8024f79 100644
 2.43.2
 
 
-From ce664bf4ff2199913643ffaebaa82fcc694885f0 Mon Sep 17 00:00:00 2001
+From 6032fb1a37b1d195e67f0e594d762ce048df092e Mon Sep 17 00:00:00 2001
 From: Donald Sharp <sharpd@nvidia.com>
 Date: Wed, 6 Mar 2024 15:03:31 -0500
-Subject: [PATCH 2/9] bgpd: Fix indentation problem in
+Subject: [PATCH 04/11] bgpd: Fix indentation problem in
  bgp_recalculate_afi_safi_bestpaths
 
 This is seriously indented.  Let's make it a bit better.
@@ -120,10 +265,10 @@ index cf52053c4e..b1711848e6 100644
 2.43.2
 
 
-From 60a63fb46df30307b1088dfc8659695293c28053 Mon Sep 17 00:00:00 2001
+From a4a790e18469c46fe55e8bf861da4bc37108e2b7 Mon Sep 17 00:00:00 2001
 From: Donald Sharp <sharpd@nvidia.com>
 Date: Fri, 1 Mar 2024 09:49:30 -0500
-Subject: [PATCH 3/9] bgpd: Add a path_info_flags dumper for bgp
+Subject: [PATCH 05/11] bgpd: Add a path_info_flags dumper for bgp
 
 Add a debug function to allow developers to dump flags
 associated with a bgp_path_info in a human readable format.
@@ -209,10 +354,10 @@ index e05507c520..c778002dc8 100644
 2.43.2
 
 
-From c3005ba90a813a123e03301e2161bf98fde0c8a0 Mon Sep 17 00:00:00 2001
+From eeea1554360868aa5efec3ad9cd9e5d7a13621aa Mon Sep 17 00:00:00 2001
 From: Donald Sharp <sharpd@nvidia.com>
 Date: Fri, 1 Mar 2024 10:01:35 -0500
-Subject: [PATCH 4/9] bgpd: Add BGP_PATH_UNSORTED for future commits
+Subject: [PATCH 06/11] bgpd: Add BGP_PATH_UNSORTED for future commits
 
 Add a new flag BGP_PATH_UNSORTED to keep track
 of sorted -vs- unsorted path_info's.  Add some
@@ -422,10 +567,10 @@ index 8c3229b45d..88f3eac178 100644
 2.43.2
 
 
-From 5ce1d28a093fd6f4491c8098857e8addc0e287ac Mon Sep 17 00:00:00 2001
+From 2913f3227edd1b85927f763a4f5ca2bb6dcf9899 Mon Sep 17 00:00:00 2001
 From: Donald Sharp <sharpd@nvidia.com>
 Date: Mon, 18 Mar 2024 09:33:21 -0400
-Subject: [PATCH 5/9] bgpd: Call bgp_process when bgp_path_info_delete is
+Subject: [PATCH 07/11] bgpd: Call bgp_process when bgp_path_info_delete is
  called
 
 bgp_damp.c has an instance of bgp_path_info_delete is called.
@@ -459,10 +604,10 @@ index 80425ebe7a..7893884fa6 100644
 2.43.2
 
 
-From 911e2877a614874a33923399eecf5ee7f7a179ec Mon Sep 17 00:00:00 2001
+From 70e1a639ac199ed5fb6df2e0a88e565472c4e65a Mon Sep 17 00:00:00 2001
 From: Donald Sharp <sharpd@nvidia.com>
 Date: Mon, 4 Mar 2024 10:41:13 -0500
-Subject: [PATCH 6/9] bgpd: Add pi to bgp_process
+Subject: [PATCH 08/11] bgpd: Add pi to bgp_process
 
 This will allow a consistency of approach to adding/removing
 pi's to from the workqueue for processing as well as properly
@@ -1195,10 +1340,10 @@ index 382af05c24..ae899daf82 100644
 2.43.2
 
 
-From bfc4c0fde1b192da5b180c18a5ad2545266013a2 Mon Sep 17 00:00:00 2001
+From 88c7297831d5c49b8f9208075ec2947bb4180765 Mon Sep 17 00:00:00 2001
 From: Donald Sharp <sharpd@nvidia.com>
 Date: Mon, 11 Mar 2024 14:05:59 -0400
-Subject: [PATCH 7/9] bgpd: bgp_best_selection is inherently pi based
+Subject: [PATCH 09/11] bgpd: bgp_best_selection is inherently pi based
 
 Currently evpn code calls bgp_best_selection for local
 decisions for local tables to figure out what to do.
@@ -1356,10 +1501,10 @@ index 5af99afa34..07bba9b426 100644
 2.43.2
 
 
-From 22a618eec6dd7d76590bc50aed6c69f1d3d0b70d Mon Sep 17 00:00:00 2001
+From a12e265b609288d5a466103b84b26ef53cad8f9f Mon Sep 17 00:00:00 2001
 From: Donald Sharp <sharpd@nvidia.com>
 Date: Wed, 20 Mar 2024 10:13:00 -0400
-Subject: [PATCH 8/9] bgpd: Do not reap, schedule for deletion
+Subject: [PATCH 10/11] bgpd: Do not reap, schedule for deletion
 
 Do not reap instead let's schedule for deletion
 and let best_path_selection take care of the deletion
@@ -1388,10 +1533,10 @@ index 76b005fac0..3c89495ccc 100644
 2.43.2
 
 
-From b5d5b1cf49f07dde7b52d6f9c3b7e3d927f7590b Mon Sep 17 00:00:00 2001
+From c420b9efd6bcbe556cd9d801d02c5fcedd526b85 Mon Sep 17 00:00:00 2001
 From: Donald Sharp <sharpd@nvidia.com>
 Date: Tue, 19 Mar 2024 12:26:14 -0400
-Subject: [PATCH 9/9] bgpd: Sort the bgp_path_info's
+Subject: [PATCH 11/11] bgpd: Sort the bgp_path_info's
 
 Currently bgp_path_info's are stored in reverse order
 received.  Sort them by the best path ordering.
@@ -1403,9 +1548,9 @@ Signed-off-by: Donald Sharp <sharpd@nvidia.com>
 ---
  bgpd/bgp_evpn.c    |  20 ++-
  bgpd/bgp_mplsvpn.c |  19 ++-
- bgpd/bgp_route.c   | 365 +++++++++++++++++++++++++++++++++++++--------
+ bgpd/bgp_route.c   | 368 +++++++++++++++++++++++++++++++++++++--------
  bgpd/bgp_route.h   |   2 +
- 4 files changed, 336 insertions(+), 70 deletions(-)
+ 4 files changed, 336 insertions(+), 73 deletions(-)
 
 diff --git a/bgpd/bgp_evpn.c b/bgpd/bgp_evpn.c
 index 3c89495ccc..cb51023a45 100644
@@ -1511,7 +1656,7 @@ index a48ef875c4..b9846d7e63 100644
  				    bpi->extra->vrfleak->bgp_orig == to_bgp)
  					continue;
 diff --git a/bgpd/bgp_route.c b/bgpd/bgp_route.c
-index e3350df7b0..4f81a2183b 100644
+index e3350df7b0..c33b14675a 100644
 --- a/bgpd/bgp_route.c
 +++ b/bgpd/bgp_route.c
 @@ -482,6 +482,7 @@ void bgp_path_info_add_with_caller(const char *name, struct bgp_dest *dest,
@@ -1549,7 +1694,7 @@ index e3350df7b0..4f81a2183b 100644
  
  	return bgp_dest_unlock_node(dest);
  }
-@@ -2786,17 +2805,19 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
+@@ -2786,17 +2805,18 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
  			struct bgp_path_info_pair *result, afi_t afi,
  			safi_t safi)
  {
@@ -1561,7 +1706,6 @@ index e3350df7b0..4f81a2183b 100644
  	struct bgp_path_info *pi1;
  	struct bgp_path_info *pi2;
 -	struct bgp_path_info *nextpi = NULL;
-+        struct bgp_path_info *nextpi = NULL;
  	int paths_eq, do_mpath;
 -	bool debug;
 +	bool debug, any_comparisons;
@@ -1573,7 +1717,7 @@ index e3350df7b0..4f81a2183b 100644
  
  	bgp_mp_list_init(&mp_list);
  	do_mpath =
-@@ -2807,16 +2828,16 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
+@@ -2807,16 +2827,16 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
  	if (debug)
  		prefix2str(bgp_dest_get_prefix(dest), pfx_buf, sizeof(pfx_buf));
  
@@ -1593,7 +1737,7 @@ index e3350df7b0..4f81a2183b 100644
  
  		for (pi1 = bgp_dest_get_bgp_path_info(dest); pi1;
  		     pi1 = pi1->next) {
-@@ -2885,70 +2906,273 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
+@@ -2885,70 +2905,273 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
  		}
  	}
  
@@ -1815,8 +1959,9 @@ index e3350df7b0..4f81a2183b 100644
 +			}
 +
 +			look_thru->reason = reason;
-+		}
-+
+ 		}
+ 
+-		bgp_path_info_unset_flag(dest, pi, BGP_PATH_DMED_CHECK);
 +		if (!any_comparisons)
 +			first->reason = bgp_path_selection_first;
 +
@@ -1851,7 +1996,15 @@ index e3350df7b0..4f81a2183b 100644
 +				worse->prev = first;
 +			} else
 +				first->prev = NULL;
-+
+ 
+-		reason = dest->reason;
+-		if (bgp_path_info_cmp(bgp, pi, new_select, &paths_eq, mpath_cfg,
+-				      debug, pfx_buf, afi, safi,
+-				      &dest->reason)) {
+-			if (new_select == NULL &&
+-			    reason != bgp_path_selection_none)
+-				dest->reason = reason;
+-			new_select = pi;
 +			if (dest->info == worse) {
 +				bgp_dest_set_bgp_path_info(dest, first);
 +				dest->reason = first->reason;
@@ -1877,8 +2030,7 @@ index e3350df7b0..4f81a2183b 100644
 +	} else
 +		new_select = old_select;
 +
- 
--		bgp_path_info_unset_flag(dest, pi, BGP_PATH_DMED_CHECK);
++
 +	/*
 +	 * Reinsert all the unsorted_holddown items for future processing
 +	 * at the end of the list.
@@ -1886,19 +2038,11 @@ index e3350df7b0..4f81a2183b 100644
 +	if (unsorted_holddown) {
 +		struct bgp_path_info *top = bgp_dest_get_bgp_path_info(dest);
 +		struct bgp_path_info *prev = NULL;
- 
--		reason = dest->reason;
--		if (bgp_path_info_cmp(bgp, pi, new_select, &paths_eq, mpath_cfg,
--				      debug, pfx_buf, afi, safi,
--				      &dest->reason)) {
--			if (new_select == NULL &&
--			    reason != bgp_path_selection_none)
--				dest->reason = reason;
--			new_select = pi;
++
 +		while (top != NULL) {
 +			prev = top;
 +			top = top->next;
- 		}
++		}
 +
 +		if (prev) {
 +			prev->next = unsorted_holddown;
@@ -1908,7 +2052,18 @@ index e3350df7b0..4f81a2183b 100644
  	}
  
  	/* Now that we know which path is the bestpath see if any of the other
-@@ -3527,7 +3751,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
+@@ -2968,9 +3191,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
+ 	}
+ 
+ 	if (do_mpath && new_select) {
+-		for (pi = bgp_dest_get_bgp_path_info(dest);
+-		     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
+-
++		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+ 			if (debug)
+ 				bgp_path_info_path_with_addpath_rx_str(
+ 					pi, path_buf, sizeof(path_buf));
+@@ -3527,7 +3748,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
  		bgp_path_info_unset_flag(dest, old_select, BGP_PATH_SELECTED);
  	if (new_select) {
  		if (debug)
@@ -1918,7 +2073,7 @@ index e3350df7b0..4f81a2183b 100644
  		bgp_path_info_set_flag(dest, new_select, BGP_PATH_SELECTED);
  		bgp_path_info_unset_flag(dest, new_select,
  					 BGP_PATH_ATTR_CHANGED);
-@@ -3762,9 +3987,25 @@ void bgp_process(struct bgp *bgp, struct bgp_dest *dest,
+@@ -3762,9 +3984,25 @@ void bgp_process(struct bgp *bgp, struct bgp_dest *dest,
  	 * situation, even if the node is already
  	 * scheduled.
  	 */
@@ -1945,7 +2100,7 @@ index e3350df7b0..4f81a2183b 100644
  	/* already scheduled for processing? */
  	if (CHECK_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED))
  		return;
-@@ -5647,7 +5888,7 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
+@@ -5647,7 +5885,7 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
  	struct bgp_clear_node_queue *cnq = data;
  	struct bgp_dest *dest = cnq->dest;
  	struct peer *peer = wq->spec.data;
@@ -1954,7 +2109,7 @@ index e3350df7b0..4f81a2183b 100644
  	struct bgp *bgp;
  	afi_t afi = bgp_dest_table(dest)->afi;
  	safi_t safi = bgp_dest_table(dest)->safi;
-@@ -5658,7 +5899,8 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
+@@ -5658,7 +5896,8 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
  	/* It is possible that we have multiple paths for a prefix from a peer
  	 * if that peer is using AddPath.
  	 */
@@ -1964,7 +2119,7 @@ index e3350df7b0..4f81a2183b 100644
  		if (pi->peer != peer)
  			continue;
  
-@@ -5920,7 +6162,7 @@ void bgp_clear_adj_in(struct peer *peer, afi_t afi, safi_t safi)
+@@ -5920,7 +6159,7 @@ void bgp_clear_adj_in(struct peer *peer, afi_t afi, safi_t safi)
  void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
  {
  	struct bgp_dest *dest;
@@ -1973,7 +2128,7 @@ index e3350df7b0..4f81a2183b 100644
  	struct bgp_table *table;
  
  	if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN) {
-@@ -5935,8 +6177,9 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
+@@ -5935,8 +6174,9 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
  
  			for (rm = bgp_table_top(table); rm;
  			     rm = bgp_route_next(rm))
@@ -1985,7 +2140,7 @@ index e3350df7b0..4f81a2183b 100644
  					if (pi->peer != peer)
  						continue;
  					if (CHECK_FLAG(
-@@ -5969,8 +6212,8 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
+@@ -5969,8 +6209,8 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
  	} else {
  		for (dest = bgp_table_top(peer->bgp->rib[afi][safi]); dest;
  		     dest = bgp_route_next(dest))
@@ -1996,7 +2151,7 @@ index e3350df7b0..4f81a2183b 100644
  				if (pi->peer != peer)
  					continue;
  				if (CHECK_FLAG(peer->af_sflags[afi][safi],
-@@ -6680,6 +6923,7 @@ void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p, afi_t afi,
+@@ -6680,6 +6920,7 @@ void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p, afi_t afi,
  
  	/* Withdraw static BGP route from routing table. */
  	if (pi) {
@@ -2004,7 +2159,7 @@ index e3350df7b0..4f81a2183b 100644
  #ifdef ENABLE_BGP_VNC
  		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
  			rfapiProcessWithdraw(pi->peer, NULL, p, prd, pi->attr,
-@@ -7466,8 +7710,10 @@ static void bgp_aggregate_install(
+@@ -7466,8 +7707,10 @@ static void bgp_aggregate_install(
  		/*
  		 * Mark the old as unusable
  		 */
@@ -2016,7 +2171,7 @@ index e3350df7b0..4f81a2183b 100644
  
  		attr = bgp_attr_aggregate_intern(
  			bgp, origin, aspath, community, ecommunity, lcommunity,
-@@ -7914,7 +8160,8 @@ void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
+@@ -7914,7 +8157,8 @@ void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
  					bgp_process(bgp, dest, pi, afi, safi);
  			}
  

@@ -1,7 +1,59 @@
-From 223f8721eeb51c4396eb953406db8e1dca72605e Mon Sep 17 00:00:00 2001
+From a2d0c451c30e80754978854f316e5291c0812e75 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Wed, 23 Oct 2024 13:16:29 -0400
+Subject: [PATCH 1/5] bgpd: Do not call evpn_overlay_free no matter what
+
+bgp_update is a very expensive call.  Calling evpn_overlay_free
+even when we have no evpn data to free is not trivial.  Let's
+limit the call into this function until we actually have data to
+free.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ bgpd/bgp_route.c | 15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/bgpd/bgp_route.c b/bgpd/bgp_route.c
+index 774ff068f8..55e0a7bc2c 100644
+--- a/bgpd/bgp_route.c
++++ b/bgpd/bgp_route.c
+@@ -4542,9 +4542,10 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
+ 		 * will not be interned. In which case, it is ok to update the
+ 		 * attr->evpn_overlay, so that, this can be stored in adj_in.
+ 		 */
+-		if ((afi == AFI_L2VPN) && evpn) {
+-			memcpy(&attr->evpn_overlay, evpn,
+-			       sizeof(struct bgp_route_evpn));
++		if (evpn) {
++			if (afi == AFI_L2VPN)
++				memcpy(&attr->evpn_overlay, evpn,
++				       sizeof(struct bgp_route_evpn));
+ 		}
+ 		bgp_adj_in_set(dest, peer, attr, addpath_id);
+ 	}
+@@ -4706,9 +4707,11 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
+ 	 * attr->evpn_overlay with evpn directly. Instead memcpy
+ 	 * evpn to new_atr.evpn_overlay before it is interned.
+ 	 */
+-	if (soft_reconfig && (afi == AFI_L2VPN) && evpn)
+-		memcpy(&new_attr.evpn_overlay, evpn,
+-		       sizeof(struct bgp_route_evpn));
++	if (soft_reconfig && evpn) {
++		if (afi == AFI_L2VPN)
++			memcpy(&new_attr.evpn_overlay, evpn,
++			       sizeof(struct bgp_route_evpn));
++	}
+ 
+ 	/* Apply incoming route-map.
+ 	 * NB: new_attr may now contain newly allocated values from route-map
+-- 
+2.43.2
+
+
+From 1fb6e42a69b92e7a9f7ee338389f4941a624b98b Mon Sep 17 00:00:00 2001
 From: Donald Sharp <sharpd@nvidia.com>
 Date: Thu, 24 Oct 2024 11:27:24 -0400
-Subject: [PATCH 1/4] bgpd: Store aspath count after aspath has changed
+Subject: [PATCH 2/5] bgpd: Store aspath count after aspath has changed
 
 When running bestpath on a very large number of ecmp.
 BGP ends up calling aspath_count a very very large number
@@ -235,10 +287,10 @@ index 2a831c3a55..8a7a734e6a 100644
 2.43.2
 
 
-From fd5a1d70d6766f350b113de7bdc97d858d3e56a9 Mon Sep 17 00:00:00 2001
+From f41a92c74a0e10defdb5bd739b6596799e43f83c Mon Sep 17 00:00:00 2001
 From: Donald Sharp <sharpd@nvidia.com>
 Date: Thu, 24 Oct 2024 11:40:56 -0400
-Subject: [PATCH 2/4] bgpd: Only grab the confed path count if we are comparing
+Subject: [PATCH 3/5] bgpd: Only grab the confed path count if we are comparing
  it
 
 This is just a small optimization but when calling path_info_cmp
@@ -250,7 +302,7 @@ Signed-off-by: Donald Sharp <sharpd@nvidia.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/bgpd/bgp_route.c b/bgpd/bgp_route.c
-index 3355a8a858..0a2e924dcc 100644
+index 55e0a7bc2c..7c596f02a7 100644
 --- a/bgpd/bgp_route.c
 +++ b/bgpd/bgp_route.c
 @@ -1096,9 +1096,9 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
@@ -268,10 +320,10 @@ index 3355a8a858..0a2e924dcc 100644
 2.43.2
 
 
-From 5a35113ccf1931f1efb878b5282246daabd02ffb Mon Sep 17 00:00:00 2001
+From 3c74e1d0dec60abfc8032c7edbebe4dc84e23a24 Mon Sep 17 00:00:00 2001
 From: Donald Sharp <sharpd@nvidia.com>
 Date: Thu, 24 Oct 2024 14:17:51 -0400
-Subject: [PATCH 3/4] bgpd: Fix deadlock in bgp_keepalive and master pthreads
+Subject: [PATCH 4/5] bgpd: Fix deadlock in bgp_keepalive and master pthreads
 
 (gdb) bt
 0  futex_wait (private=0, expected=2, futex_word=0x5c438e9a98d8) at ../sysdeps/nptl/futex-internal.h:146
@@ -308,14 +360,14 @@ possible.
 
 Signed-off-by: Donald Sharp <sharpd@nvidia.com>
 ---
- bgpd/bgp_packet.c | 58 ++++++++++++++++++++++-------------------------
- 1 file changed, 27 insertions(+), 31 deletions(-)
+ bgpd/bgp_packet.c | 60 +++++++++++++++++++++++------------------------
+ 1 file changed, 29 insertions(+), 31 deletions(-)
 
 diff --git a/bgpd/bgp_packet.c b/bgpd/bgp_packet.c
-index 1f808eea72..c81ab2ff67 100644
+index 1f808eea72..effe20ab92 100644
 --- a/bgpd/bgp_packet.c
 +++ b/bgpd/bgp_packet.c
-@@ -122,41 +122,37 @@ static void bgp_packet_add(struct peer_connection *connection,
+@@ -122,41 +122,39 @@ static void bgp_packet_add(struct peer_connection *connection,
  			peer->last_sendq_ok = monotime(NULL);
  
  		stream_fifo_push(connection->obuf, s);
@@ -330,7 +382,8 @@ index 1f808eea72..c81ab2ff67 100644
 -		else
 -			holdtime = peer->bgp->default_holdtime;
 +	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
-+		holdtime = atomic_load_explicit(&peer->holdtime, memory_order_relaxed);
++		holdtime = atomic_load_explicit(&peer->holdtime,
++						memory_order_relaxed);
 +	else
 +		holdtime = peer->bgp->default_holdtime;
  
@@ -376,7 +429,8 @@ index 1f808eea72..c81ab2ff67 100644
 +			 "%pBP has not made any SendQ progress for 2 holdtimes (%jds), terminating session",
 +			 peer, sendholdtime);
 +		BGP_EVENT_ADD(connection, TCP_fatal_error);
-+	} else if (delta > (intmax_t)holdtime && monotime(NULL) - peer->last_sendq_warn > 5) {
++	} else if (delta > (intmax_t)holdtime &&
++		   monotime(NULL) - peer->last_sendq_warn > 5) {
 +		flog_warn(EC_BGP_SENDQ_STUCK_WARN,
 +			  "%pBP has not made any SendQ progress for 1 holdtime (%us), peer overloaded?",
 +			  peer, holdtime);
@@ -388,10 +442,10 @@ index 1f808eea72..c81ab2ff67 100644
 2.43.2
 
 
-From 851087eee07083c4e112f043286e79354cca29b7 Mon Sep 17 00:00:00 2001
+From 2cf93b11d29475d0a7f0a0ee0759129669aa03ba Mon Sep 17 00:00:00 2001
 From: Donald Sharp <sharpd@nvidia.com>
 Date: Thu, 24 Oct 2024 17:44:31 -0400
-Subject: [PATCH 4/4] bgpd: Fix wrong pthread event cancelling
+Subject: [PATCH 5/5] bgpd: Fix wrong pthread event cancelling
 
 0  __pthread_kill_implementation (no_tid=0, signo=6, threadid=130719886083648) at ./nptl/pthread_kill.c:44
 1  __pthread_kill_internal (signo=6, threadid=130719886083648) at ./nptl/pthread_kill.c:78
@@ -435,7 +489,7 @@ Signed-off-by: Donald Sharp <sharpd@nvidia.com>
  5 files changed, 16 insertions(+), 2 deletions(-)
 
 diff --git a/bgpd/bgp_fsm.c b/bgpd/bgp_fsm.c
-index f58ab7c027..eff3ddb56e 100644
+index f58ab7c027..650301163d 100644
 --- a/bgpd/bgp_fsm.c
 +++ b/bgpd/bgp_fsm.c
 @@ -178,6 +178,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
@@ -479,19 +533,19 @@ index 2e96ac4c10..4e76262909 100644
  			    enum bgp_fsm_events event);
  extern enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection);
 diff --git a/bgpd/bgp_packet.c b/bgpd/bgp_packet.c
-index c81ab2ff67..d98289fb28 100644
+index effe20ab92..2e682c7733 100644
 --- a/bgpd/bgp_packet.c
 +++ b/bgpd/bgp_packet.c
-@@ -147,7 +147,8 @@ static void bgp_packet_add(struct peer_connection *connection,
+@@ -148,7 +148,8 @@ static void bgp_packet_add(struct peer_connection *connection,
  		flog_err(EC_BGP_SENDQ_STUCK_PROPER,
  			 "%pBP has not made any SendQ progress for 2 holdtimes (%jds), terminating session",
  			 peer, sendholdtime);
 -		BGP_EVENT_ADD(connection, TCP_fatal_error);
-+		event_add_event(bm->master, bgp_event_stop_with_notify, connection, 0,
-+				&connection->t_stop_with_notify);
- 	} else if (delta > (intmax_t)holdtime && monotime(NULL) - peer->last_sendq_warn > 5) {
++		event_add_event(bm->master, bgp_event_stop_with_notify,
++				connection, 0, &connection->t_stop_with_notify);
+ 	} else if (delta > (intmax_t)holdtime &&
+ 		   monotime(NULL) - peer->last_sendq_warn > 5) {
  		flog_warn(EC_BGP_SENDQ_STUCK_WARN,
- 			  "%pBP has not made any SendQ progress for 1 holdtime (%us), peer overloaded?",
 diff --git a/bgpd/bgpd.h b/bgpd/bgpd.h
 index 057e26a83d..1da1a17e8b 100644
 --- a/bgpd/bgpd.h
