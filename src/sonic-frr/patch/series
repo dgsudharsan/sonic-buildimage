@@ -32,3 +32,4 @@
 0032-show-ipv6-route-json-displays-seg6local-flavors.patch
 0033-staticd-Install-known-nexthops-upon-connection-with-zebra.patch
 0034-staticd-Fix-an-issue-where-SRv6-SIDs-may-not-be-allocated-on-heavily-loaded-systems.patch
+0057-zebra-Ensure-that-the-dplane-can-send-the-full-packe.patch
