@@ -3078,6 +3078,20 @@
         "DEBUG_COUNTER_DROP_REASON": {
             "DEBUG_4|DIP_LINK_LOCAL": {},
             "DEBUG_4|SIP_LINK_LOCAL": {}
+        },
+        "RECORDER": {
+            "config_db": {
+                "state": "enabled"
+            },
+            "state_db": {
+                "state": "enabled"
+            },
+            "app_db": {
+                "state": "disabled"
+            },
+            "asic_db": {
+                "state": "enabled"
+            }
         }
     },
     "SAMPLE_CONFIG_DB_UNKNOWN": {
